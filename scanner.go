@@ -13,6 +13,7 @@ import (
 	json "github.com/json-iterator/go"
 )
 
+// New ...
 func New(
 	poolSize int,
 	goal int,
@@ -85,7 +86,7 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 						mu.Lock()
 						testRelays = append(testRelays, ResultRelay{
 							Fingerprint: fingerprint,
-							Addresse:    addr,
+							Addresses:   addr,
 						})
 						mu.Unlock()
 					}
@@ -163,12 +164,12 @@ func (t *torRelayScanner) grab(addr string, timeout time.Duration) (Relays, erro
 	}
 
 	if t.proxy != "" {
-		proxyUrl, err := url.Parse(t.proxy)
+		proxyURL, err := url.Parse(t.proxy)
 		if err != nil {
 			fmt.Printf("wtf: %v", err)
 			return nil, fmt.Errorf("cannot parse proxy url")
 		}
-		client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
 	}
 
 	resp, err := client.Get(addr)

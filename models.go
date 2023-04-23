@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// TorRelayScanner ...
 type TorRelayScanner interface {
 	Grab() (relays []ResultRelay)
 }
@@ -34,14 +35,17 @@ type RelayInfo struct {
 	Relays          Relays `json:"relays"`
 }
 
+// Relays ...
 type Relays []Relay
 
+// Relay ...
 type Relay struct {
 	Fingerprint string   `json:"fingerprint"`
 	OrAddresses []string `json:"or_addresses"`
 }
 
+// ResultRelay ...
 type ResultRelay struct {
-	Fingerprint string
-	Addresse    string
+	Fingerprint string `json:"fingerprint"`
+	Addresses   string `json:"or_addresses"`
 }

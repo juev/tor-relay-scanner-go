@@ -59,9 +59,9 @@ func main() {
 
 	relays := sc.Grab()
 	if len(relays) > 0 {
-		fmt.Printf("\nAll reachable relays:\n")
+		fmt.Printf("All reachable relays:\n")
 		for _, el := range relays {
-			fmt.Fprintf(out, "%s%s %s\n", prefix, el.Addresse, el.Fingerprint)
+			fmt.Fprintf(out, "%s%s %s\n", prefix, el.Addresses, el.Fingerprint)
 		}
 		if torrc {
 			fmt.Fprintf(out, "UseBridges 1\n")
