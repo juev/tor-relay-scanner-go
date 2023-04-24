@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -77,21 +78,20 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		wg := sync.WaitGroup{}
 		var testRelays []ResultRelay
 		for _, el := range t.relays[relaypos : relaypos+relaynum] {
-			for _, addr := range el.OrAddresses {
-				addr, fingerprint := addr, el.Fingerprint
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if tcpSocketConnectChecker(addr, t.timeout) {
-						mu.Lock()
-						testRelays = append(testRelays, ResultRelay{
-							Fingerprint: fingerprint,
-							Addresses:   addr,
-						})
-						mu.Unlock()
-					}
-				}()
-			}
+			addr := el.OrAddresses[rand.Intn(len(el.OrAddresses))]
+			fingerprint := el.Fingerprint
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if tcpSocketConnectChecker(addr, t.timeout) {
+					mu.Lock()
+					testRelays = append(testRelays, ResultRelay{
+						Fingerprint: fingerprint,
+						Addresses:   addr,
+					})
+					mu.Unlock()
+				}
+			}()
 		}
 		wg.Wait()
 		if len(testRelays) == 0 {
