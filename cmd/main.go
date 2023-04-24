@@ -19,12 +19,13 @@ var Usage = func() {
 func main() {
 	flag.IntVarP(&poolSize, "num_relays", "n", 30, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
-	flag.IntVar(&timeout, "timeout", 1, `Socket connection timeout`)
+	flag.IntVarP(&timeout, "timeout", "t", 1, `Socket connection timeout`)
 	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
 	flag.BoolVar(&torrc, "torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
 	flag.StringVar(&proxy, "proxy", "", `Set proxy for onionoo information download. Format: http://user:pass@host:port; socks5h://user:pass@host:port`)
 	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
 	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
+	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
 	flag.Usage = Usage
 	flag.Parse()
 
@@ -40,6 +41,7 @@ func main() {
 		proxy,
 		urls,
 		port,
+		ipv4,
 	)
 
 	var prefix string

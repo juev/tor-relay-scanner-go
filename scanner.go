@@ -23,6 +23,7 @@ func New(
 	proxy string,
 	urlsList []string,
 	port []string,
+	ipv4 bool,
 ) TorRelayScanner {
 	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses"
 
@@ -48,6 +49,7 @@ func New(
 		proxy:    proxy,
 		urls:     urls,
 		port:     port,
+		ipv4:     ipv4,
 	}
 }
 
@@ -60,6 +62,7 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 	numTries := len(t.relays) / int(t.poolSize)
 	relaypos := 0
 
+	rand.Seed(time.Now().UnixNano())
 	for i := 1; i <= numTries; i++ {
 		if len(relays) >= t.goal {
 			break
@@ -78,7 +81,11 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		wg := sync.WaitGroup{}
 		var testRelays []ResultRelay
 		for _, el := range t.relays[relaypos : relaypos+relaynum] {
-			addr := el.OrAddresses[rand.Intn(len(el.OrAddresses))]
+			index := rand.Intn(len(el.OrAddresses))
+			if t.ipv4 {
+				index = 0
+			}
+			addr := el.OrAddresses[index]
 			fingerprint := el.Fingerprint
 			wg.Add(1)
 			go func() {
@@ -136,12 +143,11 @@ func (t *torRelayScanner) loadRelays() {
 	if len(t.port) > 0 {
 		var tmp Relays
 		for _, rel := range t.relays {
-			for _, addr := range rel.OrAddresses {
-				u, _ := url.Parse("//" + addr)
-				for _, p := range t.port {
-					if u.Port() == p {
-						tmp = append(tmp, rel)
-					}
+			addr := rel.OrAddresses[0]
+			u, _ := url.Parse("//" + addr)
+			for _, p := range t.port {
+				if u.Port() == p {
+					tmp = append(tmp, rel)
 				}
 			}
 		}

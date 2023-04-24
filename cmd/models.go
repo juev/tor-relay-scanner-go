@@ -18,4 +18,6 @@ var (
 	urls []string
 	// Scan for relays running on specified port number. Could be used multiple times
 	port []string
+	// Use ipv4 only nodes
+	ipv4 bool
 )
