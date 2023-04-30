@@ -27,6 +27,12 @@ to the end of `/etc/tor/torrc` file to make Tor daemon load it.
 
 **Linux & macOS**: download binary file from [Releases](https://github.com/juev/tor-relay-scanner-go/releases) and run it:  
 
-```
+```bash
 ./tor-relay-scanner-go
+```
+
+Tor-relay-scanner-go gets proxy information from environment. Or you can set it from variables:
+
+```bash
+HTTP_PROXY=http://example.com:3128 HTTPS_PROXY=http://example.com:3128 ./tor-relay-scanner-go
 ```

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"sync"
@@ -22,7 +21,6 @@ func New(
 	goal int,
 	timeout time.Duration,
 	outfile string,
-	proxy string,
 	urlsList []string,
 	port []string,
 	ipv4 bool,
@@ -48,7 +46,6 @@ func New(
 		goal:     goal,
 		timeout:  timeout,
 		outfile:  outfile,
-		proxy:    proxy,
 		urls:     urls,
 		port:     port,
 		ipv4:     ipv4,
@@ -123,15 +120,15 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 func (t *torRelayScanner) loadRelays() {
 	fmt.Printf("Tor Relay Scanner. Will scan up to %d working relays (or till the end)\n", t.goal)
 	fmt.Println("Downloading Tor Relay information from Tor Metrics...")
+	fmt.Println()
 
 	var (
 		err error
 	)
 
 	for _, addr := range t.urls {
-		t.relays, err = t.grab(addr, t.timeout)
+		t.relays, err = t.grab(addr)
 		if err != nil {
-			fmt.Printf("wtf: %v", err)
 			continue
 		}
 		break
@@ -166,34 +163,20 @@ func (t *torRelayScanner) loadRelays() {
 	fmt.Printf("Done!\n\n")
 }
 
-func (t *torRelayScanner) grab(addr string, timeout time.Duration) (Relays, error) {
-	client := &http.Client{
-		Timeout: timeout,
-	}
-
-	var transport http.Transport
-	if t.proxy != "" {
-		proxyURL, err := url.Parse(t.proxy)
-		if err != nil {
-			fmt.Printf("wtf: %v", err)
-			return nil, fmt.Errorf("cannot parse proxy url")
-		}
-		transport = http.Transport{Proxy: http.ProxyURL(proxyURL)}
-	}
-
+func (t *torRelayScanner) grab(addr string) (Relays, error) {
 	var relayInfo RelayInfo
+	u, _ := url.Parse(addr)
 	err := requests.
 		URL(addr).
-		Client(client).
-		Transport(&transport).
+		UserAgent("tor-relay-scanner").
 		ToJSON(&relayInfo).
 		Fetch(context.Background())
 	if err != nil {
-		u, _ := url.Parse(addr)
-		fmt.Printf("Can't download Tor Relay data from/via %s: %v", u.Hostname(), err)
+		fmt.Printf("Can't download Tor Relay data from/via %s: %v\n\n", u.Hostname(), err)
 		return nil, err
 	}
 
+	fmt.Printf("Download from %s\n\n", u.Hostname())
 	return relayInfo.Relays, nil
 }
 
