@@ -1,8 +1,8 @@
 package scanner
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
@@ -10,6 +10,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/carlmjohnson/requests"
 
 	json "github.com/json-iterator/go"
 )
@@ -59,10 +61,10 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 
 	fmt.Printf("Test started...\n\n")
 
-	numTries := len(t.relays) / int(t.poolSize)
-	relaypos := 0
+	numTries := len(t.relays) / t.poolSize
+	relayPos := 0
 
-	rand.Seed(time.Now().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 1; i <= numTries; i++ {
 		if len(relays) >= t.goal {
 			break
@@ -70,8 +72,8 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 
 		fmt.Printf("Try %d/%d, We'll test the following %d random relays:\n", i, numTries, t.poolSize)
 
-		relaynum := min(t.poolSize, len(t.relays)-relaypos-1)
-		for _, el := range t.relays[relaypos : relaypos+relaynum] {
+		relayNum := min(t.poolSize, len(t.relays)-relayPos-1)
+		for _, el := range t.relays[relayPos : relayPos+relayNum] {
 			p, _ := json.Marshal(el)
 			fmt.Printf("%s\n", p)
 		}
@@ -80,8 +82,8 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		mu := sync.Mutex{}
 		wg := sync.WaitGroup{}
 		var testRelays []ResultRelay
-		for _, el := range t.relays[relaypos : relaypos+relaynum] {
-			index := rand.Intn(len(el.OrAddresses))
+		for _, el := range t.relays[relayPos : relayPos+relayNum] {
+			index := r.Intn(len(el.OrAddresses))
 			if t.ipv4 {
 				index = 0
 			}
@@ -112,7 +114,7 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 			fmt.Println()
 		}
 		relays = append(relays, testRelays...)
-		relaypos += t.poolSize
+		relayPos += t.poolSize
 	}
 
 	return relays[:t.goal]
@@ -169,33 +171,29 @@ func (t *torRelayScanner) grab(addr string, timeout time.Duration) (Relays, erro
 		Timeout: timeout,
 	}
 
+	var transport http.Transport
 	if t.proxy != "" {
 		proxyURL, err := url.Parse(t.proxy)
 		if err != nil {
 			fmt.Printf("wtf: %v", err)
 			return nil, fmt.Errorf("cannot parse proxy url")
 		}
-		client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+		transport = http.Transport{Proxy: http.ProxyURL(proxyURL)}
 	}
 
-	resp, err := client.Get(addr)
+	var relayInfo RelayInfo
+	err := requests.
+		URL(addr).
+		Client(client).
+		Transport(&transport).
+		ToJSON(&relayInfo).
+		Fetch(context.Background())
 	if err != nil {
 		u, _ := url.Parse(addr)
 		fmt.Printf("Can't download Tor Relay data from/via %s: %v", u.Hostname(), err)
 		return nil, err
 	}
-	defer resp.Body.Close()
 
-	grabbed, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var relayInfo RelayInfo
-	if err := json.Unmarshal(grabbed, &relayInfo); err != nil {
-		fmt.Printf("wtf: %v", err)
-		return nil, err
-	}
 	return relayInfo.Relays, nil
 }
 
