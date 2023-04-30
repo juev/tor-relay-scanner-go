@@ -117,6 +117,47 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 	return relays[:t.goal]
 }
 
+// GetRelays returns available relays in json format
+func (t *torRelayScanner) GetRelays() ([]byte, error) {
+	t.loadRelays()
+
+	mu := sync.Mutex{}
+	var relays Relays
+	sem := make(chan struct{}, 30)
+	for _, el := range t.relayInfo.Relays {
+		el := el
+		sem <- struct{}{}
+		go func() {
+			if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
+				mu.Lock()
+				relays = append(relays, Relay{
+					Fingerprint: el.Fingerprint,
+					OrAddresses: el.OrAddresses,
+				})
+				mu.Unlock()
+			}
+			<-sem
+		}()
+	}
+	if len(relays) == 0 {
+		fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n\n")
+		return nil, fmt.Errorf("no relays are reachable this try")
+	}
+
+	result, err := json.Marshal(RelayInfo{
+		Version:         t.relayInfo.Version,
+		BuildRevision:   t.relayInfo.BuildRevision,
+		RelaysPublished: t.relayInfo.RelaysPublished,
+		Relays:          relays,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func (t *torRelayScanner) loadRelays() {
 	fmt.Printf("Tor Relay Scanner. Will scan up to %d working relays (or till the end)\n", t.goal)
 	fmt.Println("Downloading Tor Relay information from Tor Metrics...")
@@ -127,7 +168,7 @@ func (t *torRelayScanner) loadRelays() {
 	)
 
 	for _, addr := range t.urls {
-		t.relays, err = t.grab(addr)
+		t.relays, t.relayInfo, err = t.grab(addr)
 		if err != nil {
 			continue
 		}
@@ -163,7 +204,7 @@ func (t *torRelayScanner) loadRelays() {
 	fmt.Printf("Done!\n\n")
 }
 
-func (t *torRelayScanner) grab(addr string) (Relays, error) {
+func (t *torRelayScanner) grab(addr string) (Relays, RelayInfo, error) {
 	var relayInfo RelayInfo
 	u, _ := url.Parse(addr)
 	err := requests.
@@ -173,11 +214,11 @@ func (t *torRelayScanner) grab(addr string) (Relays, error) {
 		Fetch(context.Background())
 	if err != nil {
 		fmt.Printf("Can't download Tor Relay data from/via %s: %v\n\n", u.Hostname(), err)
-		return nil, err
+		return nil, RelayInfo{}, err
 	}
 
 	fmt.Printf("Download from %s\n\n", u.Hostname())
-	return relayInfo.Relays, nil
+	return relayInfo.Relays, relayInfo, nil
 }
 
 // tcpSocketConnectChecker just checked network connection with specific host:port

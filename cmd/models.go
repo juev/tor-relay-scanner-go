@@ -18,4 +18,6 @@ var (
 	port []string
 	// Use ipv4 only nodes
 	ipv4 bool
+	// Get available relays in json format
+	jsonRelays bool
 )

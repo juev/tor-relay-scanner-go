@@ -25,6 +25,7 @@ func main() {
 	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
 	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
 	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
+	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.Usage = Usage
 	flag.Parse()
 
@@ -55,6 +56,16 @@ func main() {
 			os.Exit(3)
 		}
 		out = io.MultiWriter(os.Stdout, logFile)
+	}
+
+	if jsonRelays {
+		relays, err := sc.GetRelays()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+			os.Exit(4)
+		}
+		fmt.Fprintf(out, "%s\n", relays)
+		os.Exit(0)
 	}
 
 	relays := sc.Grab()

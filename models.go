@@ -7,10 +7,12 @@ import (
 // TorRelayScanner ...
 type TorRelayScanner interface {
 	Grab() (relays []ResultRelay)
+	GetRelays() ([]byte, error)
 }
 
 type torRelayScanner struct {
-	relays Relays
+	relayInfo RelayInfo
+	relays    Relays
 	// The number of concurrent relays tested. default=30
 	poolSize int
 	// Test until at least this number of working relays are found. default=5
