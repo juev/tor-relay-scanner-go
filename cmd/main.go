@@ -25,6 +25,7 @@ func main() {
 	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
 	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
 	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
+	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.Usage = Usage
 	flag.Parse()
@@ -41,6 +42,7 @@ func main() {
 		urls,
 		port,
 		ipv4,
+		ipv6,
 	)
 
 	var prefix string

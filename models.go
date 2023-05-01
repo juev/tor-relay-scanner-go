@@ -27,6 +27,8 @@ type torRelayScanner struct {
 	port []string
 	// Use ipv4 only nodes
 	ipv4 bool
+	// Use ipv6 only nodes
+	ipv6 bool
 }
 
 // RelayInfo struct with basics information relay lists

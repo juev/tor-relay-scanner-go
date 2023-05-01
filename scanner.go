@@ -24,6 +24,7 @@ func New(
 	urlsList []string,
 	port []string,
 	ipv4 bool,
+	ipv6 bool,
 ) TorRelayScanner {
 	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses"
 
@@ -49,6 +50,7 @@ func New(
 		urls:     urls,
 		port:     port,
 		ipv4:     ipv4,
+		ipv6:     ipv6,
 	}
 }
 
@@ -80,12 +82,23 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		wg := sync.WaitGroup{}
 		var testRelays []ResultRelay
 		for _, el := range t.relays[relayPos : relayPos+relayNum] {
-			index := r.Intn(len(el.OrAddresses))
-			if t.ipv4 {
-				index = 0
-			}
-			addr := el.OrAddresses[index]
 			fingerprint := el.Fingerprint
+			var addr string
+			if t.ipv4 {
+				for _, ad := range el.OrAddresses {
+					if ad[0] != '[' {
+						addr = ad
+					}
+				}
+			} else if t.ipv6 {
+				for _, ad := range el.OrAddresses {
+					if ad[0] == '[' {
+						addr = ad
+					}
+				}
+			} else {
+				addr = el.OrAddresses[r.Intn(len(el.OrAddresses))]
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

@@ -1,7 +1,5 @@
 package main
 
-const Description = "Downloads all Tor Relay IP addresses from onionoo.torproject.org and checks whether random Relays are available."
-
 var (
 	poolSize int
 	// Test until at least this number of working relays are found. default=5
@@ -18,6 +16,8 @@ var (
 	port []string
 	// Use ipv4 only nodes
 	ipv4 bool
+	// Use ipv6 only nodes
+	ipv6 bool
 	// Get available relays in json format
 	jsonRelays bool
 )
