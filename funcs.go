@@ -6,10 +6,10 @@ import (
 )
 
 func shuffle(relays Relays) {
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(relays), func(i, j int) {
-		relays[i], relays[j] = relays[j], relays[i]
-	})
+	rand.New(rand.NewSource(time.Now().UnixNano())).
+		Shuffle(len(relays), func(i, j int) {
+			relays[i], relays[j] = relays[j], relays[i]
+		})
 }
 
 func min(x, y int) int {

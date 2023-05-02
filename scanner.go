@@ -157,12 +157,14 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 		return nil, fmt.Errorf("no relays are reachable this try")
 	}
 
-	result, err := json.Marshal(RelayInfo{
-		Version:         t.relayInfo.Version,
-		BuildRevision:   t.relayInfo.BuildRevision,
-		RelaysPublished: t.relayInfo.RelaysPublished,
-		Relays:          relays,
-	})
+	result, err := json.MarshalIndent(RelayInfo{
+		Version:          t.relayInfo.Version,
+		BuildRevision:    t.relayInfo.BuildRevision,
+		RelaysPublished:  t.relayInfo.RelaysPublished,
+		Relays:           relays,
+		BridgesPublished: t.relayInfo.BridgesPublished,
+		Bridges:          Bridges{},
+	}, "", " ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
 		return nil, err

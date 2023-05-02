@@ -31,12 +31,22 @@ type torRelayScanner struct {
 	ipv6 bool
 }
 
+type (
+	Version          string
+	BuildRevision    string
+	RelaysPublished  string
+	BridgesPublished string
+	Bridges          []any
+)
+
 // RelayInfo struct with basics information relay lists
 type RelayInfo struct {
-	Version         string
-	BuildRevision   string `json:"build_revision"`
-	RelaysPublished string `json:"relays_published"`
-	Relays          Relays `json:"relays"`
+	Version          Version
+	BuildRevision    BuildRevision    `json:"build_revision"`
+	RelaysPublished  RelaysPublished  `json:"relays_published"`
+	Relays           Relays           `json:"relays"`
+	BridgesPublished BridgesPublished `json:"bridges_published"`
+	Bridges          Bridges          `json:"bridges"`
 }
 
 // Relays ...
