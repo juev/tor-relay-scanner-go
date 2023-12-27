@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/gookit/color"
 	scanner "github.com/juev/tor-relay-scanner-go"
 	flag "github.com/spf13/pflag"
 )
 
 var Usage = func() {
-	fmt.Fprintf(os.Stdout, "Usage of tor-relay-scanner-go:\n")
+	color.Fprintln(os.Stdout, "Usage of tor-relay-scanner-go:")
 	flag.PrintDefaults()
 	os.Exit(0)
 }
@@ -54,7 +54,7 @@ func main() {
 	if outfile != "" {
 		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot create file (%s): %v", outfile, err)
+			color.Fprintf(os.Stderr, "cannot create file (%s): %s", outfile, err.Error())
 			os.Exit(3)
 		}
 		out = io.MultiWriter(os.Stdout, logFile)
@@ -63,23 +63,24 @@ func main() {
 	if jsonRelays {
 		relays, err := sc.GetRelays()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+			color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
 			os.Exit(4)
 		}
-		fmt.Fprintf(out, "%s\n", relays)
-		os.Exit(0)
+		color.Fprintf(out, "%s\n", relays)
+		return
 	}
 
 	relays := sc.Grab()
-	if len(relays) > 0 {
-		fmt.Printf("All reachable relays:\n")
-		for _, el := range relays {
-			fmt.Fprintf(out, "%s%s %s\n", prefix, el.Addresses, el.Fingerprint)
-		}
-		if torrc {
-			fmt.Fprintf(out, "UseBridges 1\n")
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+	if len(relays) == 0 {
+		color.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+		os.Exit(5)
+	}
+
+	color.Printf("All reachable relays:\n")
+	for _, el := range relays {
+		color.Fprintf(out, "%s%s %s\n", prefix, el.Addresses, el.Fingerprint)
+	}
+	if torrc {
+		color.Fprintf(out, "UseBridges 1\n")
 	}
 }

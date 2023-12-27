@@ -1,7 +1,10 @@
 package scanner
 
 import (
+	"os"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 // TorRelayScanner ...
@@ -12,7 +15,6 @@ type TorRelayScanner interface {
 
 type torRelayScanner struct {
 	relayInfo RelayInfo
-	relays    Relays
 	// The number of concurrent relays tested. default=30
 	poolSize int
 	// Test until at least this number of working relays are found. default=5
@@ -24,7 +26,7 @@ type torRelayScanner struct {
 	// Preferred alternative URL for onionoo relay list. Could be used multiple times
 	urls []string
 	// Scan for relays running on specified port number. Could be used multiple times
-	port []string
+	ports []string
 	// Use ipv4 only nodes
 	ipv4 bool
 	// Use ipv6 only nodes
@@ -62,4 +64,15 @@ type Relay struct {
 type ResultRelay struct {
 	Fingerprint string `json:"fingerprint"`
 	Addresses   string `json:"or_addresses"`
+}
+
+var progressbarOptions = []progressbar.Option{
+	progressbar.OptionSetDescription("Testing"),
+	progressbar.OptionSetWidth(15),
+	progressbar.OptionSetWriter(os.Stderr),
+	progressbar.OptionShowCount(),
+	progressbar.OptionClearOnFinish(),
+	progressbar.OptionEnableColorCodes(true),
+	progressbar.OptionSetPredictTime(false),
+	progressbar.OptionSetRenderBlankState(true),
 }
