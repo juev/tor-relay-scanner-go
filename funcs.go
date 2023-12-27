@@ -11,10 +11,3 @@ func shuffle(relays Relays) {
 			relays[i], relays[j] = relays[j], relays[i]
 		})
 }
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
