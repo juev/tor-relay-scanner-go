@@ -150,7 +150,7 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 		RelaysPublished:  t.relayInfo.RelaysPublished,
 		Relays:           relays,
 		BridgesPublished: t.relayInfo.BridgesPublished,
-		Bridges:          Bridges{},
+		Bridges:          bridges{},
 	}, "", " ")
 	if err != nil {
 		color.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
@@ -206,7 +206,7 @@ func (t *torRelayScanner) loadRelays() (err error) {
 	}
 
 	if len(filtered) == 0 {
-		return errors.New("there are no relays within specified port number constrains!\nTry changing port numbers.")
+		return errors.New("there are no relays within specified port number constrains!\nTry changing port numbers")
 	}
 	t.relayInfo.Relays = filtered
 
