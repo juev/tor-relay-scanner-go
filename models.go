@@ -63,7 +63,7 @@ type Relay struct {
 // ResultRelay ...
 type ResultRelay struct {
 	Fingerprint string `json:"fingerprint"`
-	Addresses   string `json:"or_addresses"`
+	Address     string `json:"or_addresses"`
 }
 
 var progressbarOptions = []progressbar.Option{

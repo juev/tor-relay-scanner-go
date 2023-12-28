@@ -10,13 +10,13 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-var Usage = func() {
-	color.Fprintln(os.Stdout, "Usage of tor-relay-scanner-go:")
-	flag.PrintDefaults()
-	os.Exit(0)
-}
-
 func main() {
+	usage := func() {
+		color.Fprintln(os.Stdout, "Usage of tor-relay-scanner-go:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
 	flag.IntVarP(&poolSize, "num_relays", "n", 30, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
 	flag.IntVarP(&timeout, "timeout", "t", 1, `Socket connection timeout`)
@@ -27,7 +27,7 @@ func main() {
 	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
-	flag.Usage = Usage
+	flag.Usage = usage
 	flag.Parse()
 
 	if timeout < 1 {
@@ -78,7 +78,7 @@ func main() {
 
 	color.Printf("All reachable relays:\n")
 	for _, el := range relays {
-		color.Fprintf(out, "%s%s %s\n", prefix, el.Addresses, el.Fingerprint)
+		color.Fprintf(out, "%s%s %s\n", prefix, el.Address, el.Fingerprint)
 	}
 	if torrc {
 		color.Fprintf(out, "UseBridges 1\n")

@@ -73,7 +73,7 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
 					chanRelays <- ResultRelay{
 						Fingerprint: el.Fingerprint,
-						Addresses:   el.OrAddresses[r.Intn(len(el.OrAddresses))],
+						Address:     el.OrAddresses[r.Intn(len(el.OrAddresses))],
 					}
 				}
 			})
