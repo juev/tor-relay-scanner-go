@@ -17,7 +17,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	flag.IntVarP(&poolSize, "num_relays", "n", 30, `The number of concurrent relays tested.`)
+	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
 	flag.IntVarP(&timeout, "timeout", "t", 1, `Socket connection timeout`)
 	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
