@@ -219,16 +219,14 @@ func (t *torRelayScanner) checkPorts(addr string) bool {
 }
 
 func (t *torRelayScanner) skipAddrType(addr string) bool {
-	if t.ipv4 || t.ipv6 {
-		if t.ipv4 && !t.ipv6 {
-			if addr[0] == '[' {
-				return true
-			}
+	if t.ipv4 && !t.ipv6 {
+		if addr[0] == '[' {
+			return true
 		}
-		if t.ipv6 && !t.ipv4 {
-			if addr[0] != '[' {
-				return true
-			}
+	}
+	if t.ipv6 && !t.ipv4 {
+		if addr[0] != '[' {
+			return true
 		}
 	}
 	return false
