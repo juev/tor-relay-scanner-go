@@ -2,15 +2,19 @@ package scanner
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"net"
 	"net/url"
 	"os"
-	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/carlmjohnson/requests"
+	"github.com/gookit/color"
+	"github.com/schollz/progressbar/v3"
+	"github.com/sourcegraph/conc/pool"
 
 	json "github.com/json-iterator/go"
 )
@@ -42,13 +46,12 @@ func New(
 	}
 
 	return &torRelayScanner{
-		relays:   Relays{},
 		poolSize: poolSize,
 		goal:     goal,
 		timeout:  timeout,
 		outfile:  outfile,
 		urls:     urls,
-		port:     port,
+		ports:    port,
 		ipv4:     ipv4,
 		ipv6:     ipv6,
 	}
@@ -56,75 +59,45 @@ func New(
 
 // Grab returns relay list from public addresses
 func (t *torRelayScanner) Grab() (relays []ResultRelay) {
-	t.loadRelays()
+	if err := t.loadRelays(); err != nil {
+		color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
+		os.Exit(1)
+	}
 
-	fmt.Printf("Test started...\n\n")
+	chanRelays := make(chan ResultRelay)
+	go func() {
+		p := pool.New().WithMaxGoroutines(t.poolSize)
+		for _, el := range t.relayInfo.Relays {
+			el := el
+			p.Go(func() {
+				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
+					n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(el.OrAddresses))))
+					chanRelays <- ResultRelay{
+						Fingerprint: el.Fingerprint,
+						Address:     el.OrAddresses[n.Uint64()],
+					}
+				}
+			})
+		}
+		p.Wait()
+		close(chanRelays)
+	}()
 
-	numTries := len(t.relays) / t.poolSize
-	relayPos := 0
+	bar := progressbar.NewOptions(
+		t.goal,
+		progressbarOptions...,
+	)
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 1; i <= numTries; i++ {
+	for el := range chanRelays {
+		relays = append(relays, el)
+		_ = bar.Add(1)
 		if len(relays) >= t.goal {
 			break
 		}
+	}
 
-		fmt.Printf("Try %d/%d, We'll test the following %d random relays:\n", i, numTries, t.poolSize)
-
-		relayNum := min(t.poolSize, len(t.relays)-relayPos-1)
-		for _, el := range t.relays[relayPos : relayPos+relayNum] {
-			p, _ := json.Marshal(el)
-			fmt.Printf("%s\n", p)
-		}
-		fmt.Println()
-
-		mu := sync.Mutex{}
-		wg := sync.WaitGroup{}
-		var testRelays []ResultRelay
-		for _, el := range t.relays[relayPos : relayPos+relayNum] {
-			fingerprint := el.Fingerprint
-			var addr string
-			if t.ipv4 {
-				for _, ad := range el.OrAddresses {
-					if ad[0] != '[' {
-						addr = ad
-					}
-				}
-			} else if t.ipv6 {
-				for _, ad := range el.OrAddresses {
-					if ad[0] == '[' {
-						addr = ad
-					}
-				}
-			} else {
-				addr = el.OrAddresses[r.Intn(len(el.OrAddresses))]
-			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if tcpSocketConnectChecker(addr, t.timeout) {
-					mu.Lock()
-					testRelays = append(testRelays, ResultRelay{
-						Fingerprint: fingerprint,
-						Addresses:   addr,
-					})
-					mu.Unlock()
-				}
-			}()
-		}
-		wg.Wait()
-		if len(testRelays) == 0 {
-			fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n\n")
-		} else {
-			fmt.Printf("The following relays are reachable this try:\n")
-			for _, rel := range testRelays {
-				p, _ := json.Marshal(rel)
-				fmt.Printf("%s\n", p)
-			}
-			fmt.Println()
-		}
-		relays = append(relays, testRelays...)
-		relayPos += t.poolSize
+	if len(relays) == 0 {
+		return relays
 	}
 
 	return relays[:t.goal]
@@ -132,29 +105,44 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 
 // GetRelays returns available relays in json format
 func (t *torRelayScanner) GetRelays() ([]byte, error) {
-	t.loadRelays()
-
-	mu := sync.Mutex{}
-	var relays Relays
-	sem := make(chan struct{}, 30)
-	for _, el := range t.relayInfo.Relays {
-		el := el
-		sem <- struct{}{}
-		go func() {
-			if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
-				mu.Lock()
-				relays = append(relays, Relay{
-					Fingerprint: el.Fingerprint,
-					OrAddresses: el.OrAddresses,
-				})
-				mu.Unlock()
-			}
-			<-sem
-		}()
+	if err := t.loadRelays(); err != nil {
+		return nil, err
 	}
+
+	chanRelays := make(chan Relay)
+	go func() {
+		p := pool.New().WithMaxGoroutines(t.poolSize)
+		for _, el := range t.relayInfo.Relays {
+			el := el
+			p.Go(func() {
+				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
+					chanRelays <- Relay{
+						Fingerprint: el.Fingerprint,
+						OrAddresses: el.OrAddresses,
+					}
+				}
+			})
+		}
+		p.Wait()
+		close(chanRelays)
+	}()
+
+	bar := progressbar.NewOptions(
+		t.goal,
+		progressbarOptions...,
+	)
+
+	var relays Relays
+	for el := range chanRelays {
+		relays = append(relays, el)
+		_ = bar.Add(1)
+		if len(relays) >= t.goal {
+			break
+		}
+	}
+
 	if len(relays) == 0 {
-		fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n\n")
-		return nil, fmt.Errorf("no relays are reachable this try")
+		return nil, errors.New("no relays are reachable this try")
 	}
 
 	result, err := json.MarshalIndent(RelayInfo{
@@ -163,84 +151,106 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 		RelaysPublished:  t.relayInfo.RelaysPublished,
 		Relays:           relays,
 		BridgesPublished: t.relayInfo.BridgesPublished,
-		Bridges:          Bridges{},
+		Bridges:          bridges{},
 	}, "", " ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
+		color.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
 		return nil, err
 	}
 
 	return result, nil
 }
 
-func (t *torRelayScanner) loadRelays() {
-	fmt.Printf("Tor Relay Scanner. Will scan up to %d working relays (or till the end)\n", t.goal)
-	fmt.Println("Downloading Tor Relay information from Tor Metrics...")
-	fmt.Println()
-
-	var (
-		err error
-	)
-
+func (t *torRelayScanner) loadRelays() (err error) {
 	for _, addr := range t.urls {
-		t.relays, t.relayInfo, err = t.grab(addr)
+		t.relayInfo, err = t.grab(addr)
 		if err != nil {
 			continue
 		}
 		break
 	}
 
-	if t.relays == nil {
-		fmt.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
-		os.Exit(1)
+	if len(t.relayInfo.Relays) == 0 {
+		return errors.New("tor Relay information can't be downloaded")
 	}
 
-	if len(t.port) > 0 {
-		var tmp Relays
-		for _, rel := range t.relays {
-			addr := rel.OrAddresses[0]
-			u, _ := url.Parse("//" + addr)
-			for _, p := range t.port {
-				if u.Port() == p {
-					tmp = append(tmp, rel)
-				}
+	var filtered Relays
+	for _, rel := range t.relayInfo.Relays {
+		var orAddresses []string
+		for _, addr := range rel.OrAddresses {
+			if t.skipAddrType(addr) {
+				continue
 			}
+			if t.checkPorts(addr) {
+				continue
+			}
+			orAddresses = append(orAddresses, addr)
 		}
-		if len(tmp) == 0 {
-			fmt.Fprintf(os.Stderr, "There are no relays within specified port number constrains!\n")
-			fmt.Fprintf(os.Stderr, "Try changing port numbers.")
-			os.Exit(2)
+		if len(orAddresses) > 0 {
+			rel.OrAddresses = orAddresses
+			filtered = append(filtered, rel)
 		}
-		t.relays = tmp
 	}
 
-	shuffle(t.relays)
+	if len(filtered) == 0 {
+		return errors.New("there are no relays within specified port number constrains!\nTry changing port numbers")
+	}
+	t.relayInfo.Relays = filtered
 
-	fmt.Printf("Done!\n\n")
+	shuffle(t.relayInfo.Relays)
+
+	return nil
 }
 
-func (t *torRelayScanner) grab(addr string) (Relays, RelayInfo, error) {
+func (t *torRelayScanner) checkPorts(addr string) bool {
+	if len(t.ports) > 0 {
+		u, _ := url.Parse("//" + addr)
+		var keep bool
+		for _, p := range t.ports {
+			if u.Port() == p {
+				keep = true
+			}
+		}
+		if !keep {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *torRelayScanner) skipAddrType(addr string) bool {
+	if t.ipv4 || t.ipv6 {
+		if t.ipv4 && !t.ipv6 {
+			if addr[0] == '[' {
+				return true
+			}
+		}
+		if t.ipv6 && !t.ipv4 {
+			if addr[0] != '[' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
 	var relayInfo RelayInfo
-	u, _ := url.Parse(addr)
 	err := requests.
 		URL(addr).
 		UserAgent("tor-relay-scanner").
 		ToJSON(&relayInfo).
 		Fetch(context.Background())
 	if err != nil {
-		fmt.Printf("Can't download Tor Relay data from/via %s: %v\n\n", u.Hostname(), err)
-		return nil, RelayInfo{}, err
+		return RelayInfo{}, err
 	}
 
-	fmt.Printf("Download from %s\n\n", u.Hostname())
-	return relayInfo.Relays, relayInfo, nil
+	return relayInfo, nil
 }
 
 // tcpSocketConnectChecker just checked network connection with specific host:port
 func tcpSocketConnectChecker(addr string, timeout time.Duration) bool {
 	_, err := net.DialTimeout("tcp", addr, timeout)
-	if err != nil {
-		return false
-	}
-	return true
+
+	return err == nil
 }

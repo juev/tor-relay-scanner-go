@@ -1,23 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/gookit/color"
 	scanner "github.com/juev/tor-relay-scanner-go"
 	flag "github.com/spf13/pflag"
 )
 
-var Usage = func() {
-	fmt.Fprintf(os.Stdout, "Usage of tor-relay-scanner-go:\n")
-	flag.PrintDefaults()
-	os.Exit(0)
-}
-
 func main() {
-	flag.IntVarP(&poolSize, "num_relays", "n", 30, `The number of concurrent relays tested.`)
+	usage := func() {
+		color.Fprintln(os.Stdout, "Usage of tor-relay-scanner-go:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
 	flag.IntVarP(&timeout, "timeout", "t", 1, `Socket connection timeout`)
 	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
@@ -27,7 +27,7 @@ func main() {
 	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
-	flag.Usage = Usage
+	flag.Usage = usage
 	flag.Parse()
 
 	if timeout < 1 {
@@ -54,7 +54,7 @@ func main() {
 	if outfile != "" {
 		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot create file (%s): %v", outfile, err)
+			color.Fprintf(os.Stderr, "cannot create file (%s): %s", outfile, err.Error())
 			os.Exit(3)
 		}
 		out = io.MultiWriter(os.Stdout, logFile)
@@ -63,23 +63,24 @@ func main() {
 	if jsonRelays {
 		relays, err := sc.GetRelays()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+			color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
 			os.Exit(4)
 		}
-		fmt.Fprintf(out, "%s\n", relays)
-		os.Exit(0)
+		color.Fprintf(out, "%s\n", relays)
+		return
 	}
 
 	relays := sc.Grab()
-	if len(relays) > 0 {
-		fmt.Printf("All reachable relays:\n")
-		for _, el := range relays {
-			fmt.Fprintf(out, "%s%s %s\n", prefix, el.Addresses, el.Fingerprint)
-		}
-		if torrc {
-			fmt.Fprintf(out, "UseBridges 1\n")
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+	if len(relays) == 0 {
+		color.Fprintf(os.Stderr, "No relays are reachable this try.\n")
+		os.Exit(5)
+	}
+
+	color.Printf("All reachable relays:\n")
+	for _, el := range relays {
+		color.Fprintf(out, "%s%s %s\n", prefix, el.Address, el.Fingerprint)
+	}
+	if torrc {
+		color.Fprintf(out, "UseBridges 1\n")
 	}
 }

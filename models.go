@@ -1,7 +1,10 @@
 package scanner
 
 import (
+	"os"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 // TorRelayScanner ...
@@ -12,7 +15,6 @@ type TorRelayScanner interface {
 
 type torRelayScanner struct {
 	relayInfo RelayInfo
-	relays    Relays
 	// The number of concurrent relays tested. default=30
 	poolSize int
 	// Test until at least this number of working relays are found. default=5
@@ -24,7 +26,7 @@ type torRelayScanner struct {
 	// Preferred alternative URL for onionoo relay list. Could be used multiple times
 	urls []string
 	// Scan for relays running on specified port number. Could be used multiple times
-	port []string
+	ports []string
 	// Use ipv4 only nodes
 	ipv4 bool
 	// Use ipv6 only nodes
@@ -32,21 +34,21 @@ type torRelayScanner struct {
 }
 
 type (
-	Version          string
-	BuildRevision    string
-	RelaysPublished  string
-	BridgesPublished string
-	Bridges          []any
+	version          string
+	buildRevision    string
+	relaysPublished  string
+	bridgesPublished string
+	bridges          []any
 )
 
 // RelayInfo struct with basics information relay lists
 type RelayInfo struct {
-	Version          Version
-	BuildRevision    BuildRevision    `json:"build_revision"`
-	RelaysPublished  RelaysPublished  `json:"relays_published"`
+	Version          version
+	BuildRevision    buildRevision    `json:"build_revision"`
+	RelaysPublished  relaysPublished  `json:"relays_published"`
 	Relays           Relays           `json:"relays"`
-	BridgesPublished BridgesPublished `json:"bridges_published"`
-	Bridges          Bridges          `json:"bridges"`
+	BridgesPublished bridgesPublished `json:"bridges_published"`
+	Bridges          bridges          `json:"bridges"`
 }
 
 // Relays ...
@@ -61,5 +63,16 @@ type Relay struct {
 // ResultRelay ...
 type ResultRelay struct {
 	Fingerprint string `json:"fingerprint"`
-	Addresses   string `json:"or_addresses"`
+	Address     string `json:"or_addresses"`
+}
+
+var progressbarOptions = []progressbar.Option{
+	progressbar.OptionSetDescription("Testing"),
+	progressbar.OptionSetWidth(15),
+	progressbar.OptionSetWriter(os.Stderr),
+	progressbar.OptionShowCount(),
+	progressbar.OptionClearOnFinish(),
+	progressbar.OptionEnableColorCodes(true),
+	progressbar.OptionSetPredictTime(false),
+	progressbar.OptionSetRenderBlankState(true),
 }
