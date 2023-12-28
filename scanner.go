@@ -2,7 +2,8 @@ package scanner
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"net"
 	"net/url"
 	"os"
@@ -63,7 +64,6 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		os.Exit(1)
 	}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	chanRelays := make(chan ResultRelay)
 	go func() {
 		p := pool.New().WithMaxGoroutines(t.poolSize)
@@ -71,9 +71,10 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 			el := el
 			p.Go(func() {
 				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
+					n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(el.OrAddresses))))
 					chanRelays <- ResultRelay{
 						Fingerprint: el.Fingerprint,
-						Address:     el.OrAddresses[r.Intn(len(el.OrAddresses))],
+						Address:     el.OrAddresses[n.Uint64()],
 					}
 				}
 			})
