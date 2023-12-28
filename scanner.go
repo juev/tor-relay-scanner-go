@@ -178,25 +178,15 @@ func (t *torRelayScanner) loadRelays() (err error) {
 	for _, rel := range t.relayInfo.Relays {
 		var orAddresses []string
 		for _, addr := range rel.OrAddresses {
-			if t.ipv4 || t.ipv6 {
-				if t.ipv4 && !t.ipv6 {
-					if addr[0] == '[' {
-						continue
-					}
-				}
-				if t.ipv6 && !t.ipv4 {
-					if addr[0] != '[' {
-						continue
-					}
-				}
+			if t.shouldSkipAddr(addr) {
+				continue
 			}
-			if len(t.ports) == 0 {
-				orAddresses = append(orAddresses, addr)
-			}
-			u, _ := url.Parse("//" + addr)
-			for _, p := range t.ports {
-				if u.Port() == p {
-					orAddresses = append(orAddresses, addr)
+			if len(t.ports) > 0 {
+				u, _ := url.Parse("//" + addr)
+				for _, p := range t.ports {
+					if u.Port() == p {
+						orAddresses = append(orAddresses, addr)
+					}
 				}
 			}
 			if len(orAddresses) > 0 {
@@ -214,6 +204,22 @@ func (t *torRelayScanner) loadRelays() (err error) {
 	shuffle(t.relayInfo.Relays)
 
 	return nil
+}
+
+func (t *torRelayScanner) shouldSkipAddr(addr string) bool {
+	if t.ipv4 || t.ipv6 {
+		if t.ipv4 && !t.ipv6 {
+			if addr[0] == '[' {
+				return true
+			}
+		}
+		if t.ipv6 && !t.ipv4 {
+			if addr[0] != '[' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
