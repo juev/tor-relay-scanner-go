@@ -12,7 +12,7 @@ It could be used to find working Relay in a countries with Internet censorship a
 
 This utility is capable of generating `torrc` configuration file containing Bridge information. Launch it with the following arguments:
 
-`--torrc --output /etc/tor/bridges.conf`
+`--torrc --outfile /etc/tor/bridges.conf`
 
 And append:
 
