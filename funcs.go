@@ -1,13 +1,13 @@
 package scanner
 
 import (
-	"math/rand"
-	"time"
+	"crypto/rand"
+	"math/big"
 )
 
 func shuffle(relays Relays) {
-	rand.New(rand.NewSource(time.Now().UnixNano())).
-		Shuffle(len(relays), func(i, j int) {
-			relays[i], relays[j] = relays[j], relays[i]
-		})
+	for i := len(relays) - 1; i > 0; i-- {
+		j, _ := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		relays[i], relays[j.Uint64()] = relays[j.Uint64()], relays[i]
+	}
 }
