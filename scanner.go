@@ -13,6 +13,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/gookit/color"
+	"github.com/k0kubun/go-ansi"
 	"github.com/schollz/progressbar/v3"
 	"github.com/sourcegraph/conc/pool"
 
@@ -126,12 +127,19 @@ func (t *torRelayScanner) getRelays() Relays {
 		t.goal,
 		progressbar.OptionSetDescription("Testing"),
 		progressbar.OptionSetWidth(15),
-		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
 		progressbar.OptionShowCount(),
 		progressbar.OptionClearOnFinish(),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionSetPredictTime(false),
 		progressbar.OptionSetRenderBlankState(true),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
 		progressbar.OptionSetVisibility(!t.silent),
 	)
 
