@@ -5,7 +5,7 @@ var (
 	// Test until at least this number of working relays are found. default=5
 	goal int
 	// Socket connection timeout. default=1s
-	timeout int
+	timeoutStr string
 	// Output reachable relays to file. default=sys.stdout
 	outfile string
 	// Output reachable relays in torrc format (with "Bridge" prefix)
@@ -23,5 +23,5 @@ var (
 	// Silent mode
 	silent bool
 	// Deadline
-	deadline int
+	deadlineStr string
 )

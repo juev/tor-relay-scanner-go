@@ -13,7 +13,7 @@ import (
 func main() {
 	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
-	flag.IntVarP(&timeout, "timeout", "t", 1, `Socket connection timeout`)
+	flag.StringVarP(&timeoutStr, "timeout", "t", "200ms", `Socket connection timeout`)
 	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
 	flag.BoolVar(&torrc, "torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
 	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
@@ -22,25 +22,33 @@ func main() {
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.BoolVarP(&silent, "silent", "s", false, `Silent mode`)
-	flag.IntVarP(&deadline, "deadline", "d", 1, `The deadline of program execution (in minutes)`)
+	flag.StringVarP(&deadlineStr, "deadline", "d", "1m", `The deadline of program execution`)
 	flag.Usage = usage
 	flag.Parse()
 
-	if timeout < 1 {
-		timeout = 1
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		color.Errorf("cannot parse timeout duration: %s\n", err)
+		os.Exit(1)
+	}
+
+	deadline, err := time.ParseDuration(deadlineStr)
+	if err != nil {
+		color.Errorf("cannot parse deadline duration: %s\n", err)
+		os.Exit(1)
 	}
 
 	sc := scanner.New(
 		poolSize,
 		goal,
-		time.Duration(timeout)*time.Second,
+		timeout,
 		outfile,
 		urls,
 		port,
 		ipv4,
 		ipv6,
 		silent,
-		time.Duration(deadline)*time.Minute,
+		deadline,
 	)
 
 	var prefix string
