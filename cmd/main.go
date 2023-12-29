@@ -55,12 +55,12 @@ func main() {
 
 	if outfile != "" {
 		if _, err := os.Stat(outfile); err == nil {
-			color.Fprintf(os.Stderr, "file already exists: %s", outfile)
+			color.Fprintf(os.Stderr, "file already exists: %s\n", outfile)
 			os.Exit(1)
 		}
 		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 		if err != nil {
-			color.Fprintf(os.Stderr, "cannot create file (%s): %s", outfile, err.Error())
+			color.Fprintf(os.Stderr, "cannot create file (%s): %s\n", outfile, err.Error())
 			os.Exit(2)
 		}
 		out = io.MultiWriter(writer, logFile)
