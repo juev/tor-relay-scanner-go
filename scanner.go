@@ -30,6 +30,7 @@ func New(
 	ipv4 bool,
 	ipv6 bool,
 	silent bool,
+	deadline time.Duration,
 ) TorRelayScanner {
 	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses"
 
@@ -56,6 +57,7 @@ func New(
 		ipv4:     ipv4,
 		ipv6:     ipv6,
 		silent:   silent,
+		deadline: deadline,
 	}
 }
 
@@ -133,7 +135,7 @@ func (t *torRelayScanner) getRelays() Relays {
 		progressbar.OptionSetVisibility(!t.silent),
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), t.deadline)
 	defer cancel()
 
 	var relays Relays
@@ -143,7 +145,7 @@ func (t *torRelayScanner) getRelays() Relays {
 			relays = append(relays, el)
 			_ = bar.Add(1)
 		case <-ctx.Done():
-			color.Errorf("context deadline exceeded")
+			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.0fm", t.deadline.Minutes())
 			os.Exit(1)
 		}
 	}

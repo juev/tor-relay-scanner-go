@@ -22,6 +22,7 @@ func main() {
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.BoolVarP(&silent, "silent", "s", false, `Silent mode`)
+	flag.IntVarP(&deadline, "deadline", "d", 1, `The deadline of program execution (in minutes)`)
 	flag.Usage = usage
 	flag.Parse()
 
@@ -39,6 +40,7 @@ func main() {
 		ipv4,
 		ipv6,
 		silent,
+		time.Duration(deadline)*time.Minute,
 	)
 
 	var prefix string

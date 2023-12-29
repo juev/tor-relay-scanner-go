@@ -22,4 +22,6 @@ var (
 	jsonRelays bool
 	// Silent mode
 	silent bool
+	// Deadline
+	deadline int
 )

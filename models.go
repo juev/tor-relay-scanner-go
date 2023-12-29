@@ -28,8 +28,10 @@ type torRelayScanner struct {
 	ipv4 bool
 	// Use ipv6 only nodes
 	ipv6 bool
-	// silent mode
+	// Silent mode
 	silent bool
+	// Deadline time
+	deadline time.Duration
 }
 
 type (
