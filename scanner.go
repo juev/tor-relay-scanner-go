@@ -140,18 +140,15 @@ func (t *torRelayScanner) getRelays() Relays {
 		progressbar.OptionSetVisibility(!t.silent),
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), t.deadline)
-	defer cancel()
-
 	var relays Relays
 	for i := 0; i < t.goal; i++ {
 		select {
 		case el := <-chanRelays:
 			relays = append(relays, el)
 			_ = bar.Add(1)
-		case <-ctx.Done():
+		case <-time.After(t.deadline):
 			_ = bar.Add(t.goal)
-			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fm\n", t.deadline.Minutes())
+			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fs\n", t.deadline.Seconds())
 			os.Exit(1)
 		}
 	}

@@ -22,3 +22,4 @@ go.work
 
 # tmp files
 out
+tor-relay-scanner-go
