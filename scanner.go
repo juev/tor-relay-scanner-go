@@ -75,8 +75,8 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 	return relays
 }
 
-// GetRelays returns available relays in json format
-func (t *torRelayScanner) GetRelays() []byte {
+// GetJSON returns available relays in json format
+func (t *torRelayScanner) GetJSON() []byte {
 	resultRelays := t.getRelays()
 	if len(resultRelays) == 0 {
 		return nil

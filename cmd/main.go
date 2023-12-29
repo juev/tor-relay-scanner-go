@@ -61,7 +61,7 @@ func main() {
 	}
 
 	if jsonRelays {
-		relays := sc.GetRelays()
+		relays := sc.GetJSON()
 		color.Fprintf(out, "%s\n", relays)
 		return
 	}
