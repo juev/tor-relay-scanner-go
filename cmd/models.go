@@ -20,4 +20,6 @@ var (
 	ipv6 bool
 	// Get available relays in json format
 	jsonRelays bool
+	// Silent mode
+	silent bool
 )
