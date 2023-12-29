@@ -18,8 +18,6 @@ type torRelayScanner struct {
 	goal int
 	// Socket connection timeout. default=1s
 	timeout time.Duration
-	// Output reachable relays to file. default=sys.stdout
-	outfile string
 	// Preferred alternative URL for onionoo relay list. Could be used multiple times
 	urls []string
 	// Scan for relays running on specified port number. Could be used multiple times

@@ -25,7 +25,6 @@ func New(
 	poolSize int,
 	goal int,
 	timeout time.Duration,
-	outfile string,
 	urlsList []string,
 	port []string,
 	ipv4 bool,
@@ -52,7 +51,6 @@ func New(
 		poolSize: poolSize,
 		goal:     goal,
 		timeout:  timeout,
-		outfile:  outfile,
 		urls:     urls,
 		ports:    port,
 		ipv4:     ipv4,
@@ -120,7 +118,6 @@ func (t *torRelayScanner) getRelays() Relays {
 			})
 		}
 		p.Wait()
-		close(chanRelays)
 	}()
 
 	bar := progressbar.NewOptions(
@@ -153,7 +150,8 @@ func (t *torRelayScanner) getRelays() Relays {
 			relays = append(relays, el)
 			_ = bar.Add(1)
 		case <-ctx.Done():
-			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.0fm", t.deadline.Minutes())
+			_ = bar.Add(t.goal)
+			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fm\n", t.deadline.Minutes())
 			os.Exit(1)
 		}
 	}
@@ -247,7 +245,8 @@ func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
 
 // tcpSocketConnectChecker just checked network connection with specific host:port
 func tcpSocketConnectChecker(addr string, timeout time.Duration) bool {
-	_, err := net.DialTimeout("tcp", addr, timeout)
+	d := net.Dialer{Deadline: time.Now().Add(timeout)}
+	_, err := d.Dial("tcp", addr)
 
 	return err == nil
 }
