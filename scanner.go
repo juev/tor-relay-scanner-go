@@ -61,7 +61,7 @@ func New(
 func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 	resultRelays := t.getRelays()
 	if len(resultRelays) == 0 {
-		return relays
+		return nil
 	}
 
 	for _, el := range resultRelays {
@@ -76,11 +76,10 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 }
 
 // GetRelays returns available relays in json format
-func (t *torRelayScanner) GetRelays() ([]byte, error) {
+func (t *torRelayScanner) GetRelays() []byte {
 	resultRelays := t.getRelays()
-
 	if len(resultRelays) == 0 {
-		return nil, errors.New("no relays are reachable this try")
+		return nil
 	}
 
 	result, _ := json.MarshalIndent(RelayInfo{
@@ -92,7 +91,7 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 		Bridges:          bridges{},
 	}, "", " ")
 
-	return result, nil
+	return result
 }
 
 func (t *torRelayScanner) getRelays() Relays {
@@ -131,11 +130,17 @@ func (t *torRelayScanner) getRelays() Relays {
 		progressbar.OptionSetRenderBlankState(true),
 	)
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	var relays Relays
-	for el := range chanRelays {
-		relays = append(relays, el)
-		_ = bar.Add(1)
-		if len(relays) >= t.goal {
+	for i := 0; i < t.goal; i++ {
+		select {
+		case el := <-chanRelays:
+			relays = append(relays, el)
+			_ = bar.Add(1)
+		case <-ctx.Done():
+			color.Errorf("context deadline exceeded")
 			break
 		}
 	}

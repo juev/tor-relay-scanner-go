@@ -7,7 +7,7 @@ import (
 // TorRelayScanner ...
 type TorRelayScanner interface {
 	Grab() (relays []ResultRelay)
-	GetRelays() ([]byte, error)
+	GetRelays() []byte
 }
 
 type torRelayScanner struct {

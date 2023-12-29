@@ -61,11 +61,7 @@ func main() {
 	}
 
 	if jsonRelays {
-		relays, err := sc.GetRelays()
-		if err != nil {
-			color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
-			os.Exit(4)
-		}
+		relays := sc.GetRelays()
 		color.Fprintf(out, "%s\n", relays)
 		return
 	}
@@ -73,7 +69,7 @@ func main() {
 	relays := sc.Grab()
 	if len(relays) == 0 {
 		color.Fprintf(os.Stderr, "No relays are reachable this try.\n")
-		os.Exit(5)
+		os.Exit(4)
 	}
 
 	color.Printf("All reachable relays:\n")
