@@ -1,10 +1,7 @@
 package scanner
 
 import (
-	"os"
 	"time"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 // TorRelayScanner ...
@@ -64,15 +61,4 @@ type Relay struct {
 type ResultRelay struct {
 	Fingerprint string `json:"fingerprint"`
 	Address     string `json:"or_addresses"`
-}
-
-var progressbarOptions = []progressbar.Option{
-	progressbar.OptionSetDescription("Testing"),
-	progressbar.OptionSetWidth(15),
-	progressbar.OptionSetWriter(os.Stderr),
-	progressbar.OptionShowCount(),
-	progressbar.OptionClearOnFinish(),
-	progressbar.OptionEnableColorCodes(true),
-	progressbar.OptionSetPredictTime(false),
-	progressbar.OptionSetRenderBlankState(true),
 }

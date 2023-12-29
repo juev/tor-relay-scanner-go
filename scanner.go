@@ -59,54 +59,46 @@ func New(
 
 // Grab returns relay list from public addresses
 func (t *torRelayScanner) Grab() (relays []ResultRelay) {
-	if err := t.loadRelays(); err != nil {
-		color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
-		os.Exit(1)
-	}
-
-	chanRelays := make(chan ResultRelay)
-	go func() {
-		p := pool.New().WithMaxGoroutines(t.poolSize)
-		for _, el := range t.relayInfo.Relays {
-			el := el
-			p.Go(func() {
-				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
-					n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(el.OrAddresses))))
-					chanRelays <- ResultRelay{
-						Fingerprint: el.Fingerprint,
-						Address:     el.OrAddresses[n.Uint64()],
-					}
-				}
-			})
-		}
-		p.Wait()
-		close(chanRelays)
-	}()
-
-	bar := progressbar.NewOptions(
-		t.goal,
-		progressbarOptions...,
-	)
-
-	for el := range chanRelays {
-		relays = append(relays, el)
-		_ = bar.Add(1)
-		if len(relays) >= t.goal {
-			break
-		}
-	}
-
-	if len(relays) == 0 {
+	resultRelays := t.getRelays()
+	if len(resultRelays) == 0 {
 		return relays
 	}
 
-	return relays[:t.goal]
+	for _, el := range resultRelays {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(el.OrAddresses))))
+		relays = append(relays, ResultRelay{
+			Fingerprint: el.Fingerprint,
+			Address:     el.OrAddresses[n.Uint64()],
+		})
+	}
+
+	return relays
 }
 
 // GetRelays returns available relays in json format
 func (t *torRelayScanner) GetRelays() ([]byte, error) {
+	resultRelays := t.getRelays()
+
+	if len(resultRelays) == 0 {
+		return nil, errors.New("no relays are reachable this try")
+	}
+
+	result, _ := json.MarshalIndent(RelayInfo{
+		Version:          t.relayInfo.Version,
+		BuildRevision:    t.relayInfo.BuildRevision,
+		RelaysPublished:  t.relayInfo.RelaysPublished,
+		Relays:           resultRelays,
+		BridgesPublished: t.relayInfo.BridgesPublished,
+		Bridges:          bridges{},
+	}, "", " ")
+
+	return result, nil
+}
+
+func (t *torRelayScanner) getRelays() Relays {
 	if err := t.loadRelays(); err != nil {
-		return nil, err
+		color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
+		os.Exit(1)
 	}
 
 	chanRelays := make(chan Relay)
@@ -129,7 +121,14 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 
 	bar := progressbar.NewOptions(
 		t.goal,
-		progressbarOptions...,
+		progressbar.OptionSetDescription("Testing"),
+		progressbar.OptionSetWidth(15),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionShowCount(),
+		progressbar.OptionClearOnFinish(),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetPredictTime(false),
+		progressbar.OptionSetRenderBlankState(true),
 	)
 
 	var relays Relays
@@ -140,25 +139,7 @@ func (t *torRelayScanner) GetRelays() ([]byte, error) {
 			break
 		}
 	}
-
-	if len(relays) == 0 {
-		return nil, errors.New("no relays are reachable this try")
-	}
-
-	result, err := json.MarshalIndent(RelayInfo{
-		Version:          t.relayInfo.Version,
-		BuildRevision:    t.relayInfo.BuildRevision,
-		RelaysPublished:  t.relayInfo.RelaysPublished,
-		Relays:           relays,
-		BridgesPublished: t.relayInfo.BridgesPublished,
-		Bridges:          bridges{},
-	}, "", " ")
-	if err != nil {
-		color.Fprintf(os.Stderr, "Cannot marshal RelayInfo: %v.\n", err)
-		return nil, err
-	}
-
-	return result, nil
+	return relays
 }
 
 func (t *torRelayScanner) loadRelays() (err error) {
