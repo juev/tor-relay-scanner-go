@@ -149,9 +149,11 @@ func (t *torRelayScanner) getRelays() Relays {
 		case <-time.After(t.deadline):
 			_ = bar.Add(t.goal)
 			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fs\n", t.deadline.Seconds())
-			os.Exit(1)
+			goto loop
 		}
 	}
+
+loop:
 	return relays
 }
 
