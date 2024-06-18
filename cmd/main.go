@@ -29,7 +29,7 @@ func main() {
 	out := io.MultiWriter(writer)
 
 	if outfile != "" {
-		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_RDWR, 0666)
+		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
 		if err != nil {
 			color.Fprintf(os.Stderr, "cannot create file (%s): %s\n", outfile, err.Error())
 			os.Exit(2)
@@ -64,27 +64,28 @@ func usage() {
 }
 
 func create() scanner.TorRelayScanner {
-	poolSize := flag.IntP("num_relays", "n", 100, `The number of concurrent relays tested.`)
-	goal := flag.IntP("working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
-	timeoutStr := flag.StringP("timeout", "t", "200ms", `Socket connection timeout`)
-	f := flag.StringP("outfile", "o", "", `Output reachable relays to file`)
-	t := flag.Bool("torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
-	urls := flag.StringArrayP("url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
-	port := flag.StringArrayP("port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
-	ipv4 := flag.BoolP("ipv4", "4", false, `Use ipv4 only nodes`)
-	ipv6 := flag.BoolP("ipv6", "6", false, `Use ipv6 only nodes`)
-	j := flag.BoolP("json", "j", false, `Get available relays in json format`)
-	s := flag.BoolP("silent", "s", false, `Silent mode`)
-	deadlineStr := flag.StringP("deadline", "d", "1m", `The deadline of program execution`)
+	var poolSize, goal int
+	var timeoutStr, deadlineStr string
+	var urls, port []string
+	var ipv4, ipv6 bool
+
+	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
+	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
+	flag.StringVarP(&timeoutStr, "timeout", "t", "200ms", `Socket connection timeout`)
+	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
+	flag.BoolVar(&torRc, "torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
+	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
+	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
+	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
+	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
+	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
+	flag.BoolVarP(&silent, "silent", "s", false, `Silent mode`)
+	flag.StringVarP(&deadlineStr, "deadline", "d", "1m", `The deadline of program execution`)
+
 	flag.Usage = usage
 	flag.Parse()
 
-	outfile = *f
-	torRc = *t
-	jsonRelays = *j
-	silent = *s
-
-	timeout, err := time.ParseDuration(*timeoutStr)
+	timeout, err := time.ParseDuration(timeoutStr)
 	if err != nil {
 		color.Printf("cannot parse timeout duration: %s\n", err)
 		os.Exit(1)
@@ -95,7 +96,7 @@ func create() scanner.TorRelayScanner {
 		os.Exit(1)
 	}
 
-	deadline, err := time.ParseDuration(*deadlineStr)
+	deadline, err := time.ParseDuration(deadlineStr)
 	if err != nil {
 		color.Printf("cannot parse deadline duration: %s\n", err)
 		os.Exit(1)
@@ -107,13 +108,13 @@ func create() scanner.TorRelayScanner {
 	}
 
 	sc := scanner.New(
-		*poolSize,
-		*goal,
+		poolSize,
+		goal,
 		timeout,
-		*urls,
-		*port,
-		*ipv4,
-		*ipv6,
+		urls,
+		port,
+		ipv4,
+		ipv6,
 		silent,
 		deadline,
 	)
