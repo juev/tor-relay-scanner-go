@@ -3,13 +3,12 @@ package scanner
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"math/big"
 	"net"
 	"net/url"
 	"os"
 	"time"
-
-	"errors"
 
 	"github.com/carlmjohnson/requests"
 	"github.com/gookit/color"
