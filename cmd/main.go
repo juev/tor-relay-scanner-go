@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/gookit/color"
-	scanner "github.com/juev/tor-relay-scanner-go"
 	flag "github.com/spf13/pflag"
+
+	scanner "github.com/juev/tor-relay-scanner-go"
 )
 
 var torRc, jsonRelays, silent bool
