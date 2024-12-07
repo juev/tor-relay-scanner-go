@@ -2,12 +2,12 @@ package scanner
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"math/big"
+	"math/rand"
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/carlmjohnson/requests"
@@ -66,12 +66,14 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		return nil
 	}
 
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for _, el := range resultRelays {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(el.OrAddresses))))
-		relays = append(relays, ResultRelay{
-			Fingerprint: el.Fingerprint,
-			Address:     el.OrAddresses[n.Uint64()],
-		})
+		if len(el.OrAddresses) > 0 {
+			relays = append(relays, ResultRelay{
+				Fingerprint: el.Fingerprint,
+				Address:     el.OrAddresses[r.Intn(len(el.OrAddresses))],
+			})
+		}
 	}
 
 	return relays
@@ -103,41 +105,9 @@ func (t *torRelayScanner) getRelays() Relays {
 	}
 
 	chanRelays := make(chan Relay)
-	go func() {
-		p := pool.New().WithMaxGoroutines(t.poolSize)
-		for _, el := range t.relayInfo.Relays {
-			el := el
-			p.Go(func() {
-				if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
-					chanRelays <- Relay{
-						Fingerprint: el.Fingerprint,
-						OrAddresses: el.OrAddresses,
-					}
-				}
-			})
-		}
-		p.Wait()
-	}()
+	go t.testRelays(chanRelays)
 
-	bar := progressbar.NewOptions(
-		t.goal,
-		progressbar.OptionSetDescription("Testing"),
-		progressbar.OptionSetWidth(15),
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-		progressbar.OptionShowCount(),
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetPredictTime(false),
-		progressbar.OptionSetRenderBlankState(true),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[green]=[reset]",
-			SaucerHead:    "[green]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-		progressbar.OptionSetVisibility(!t.silent),
-	)
+	bar := t.createProgressBar()
 
 	var relays Relays
 	for i := 0; i < t.goal; i++ {
@@ -156,57 +126,95 @@ loop:
 	return relays
 }
 
-func (t *torRelayScanner) loadRelays() (err error) {
+func (t *torRelayScanner) testRelays(chanRelays chan Relay) {
+	p := pool.New().WithMaxGoroutines(t.poolSize)
+	for _, el := range t.relayInfo.Relays {
+		el := el
+		p.Go(func() {
+			if tcpSocketConnectChecker(el.OrAddresses[0], t.timeout) {
+				chanRelays <- Relay{
+					Fingerprint: el.Fingerprint,
+					OrAddresses: el.OrAddresses,
+				}
+			}
+		})
+	}
+	p.Wait()
+	close(chanRelays)
+}
+
+func (t *torRelayScanner) createProgressBar() *progressbar.ProgressBar {
+	return progressbar.NewOptions(
+		t.goal,
+		progressbar.OptionSetDescription("Testing"),
+		progressbar.OptionSetWidth(15),
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionShowCount(),
+		progressbar.OptionClearOnFinish(),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetPredictTime(false),
+		progressbar.OptionSetRenderBlankState(true),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+		progressbar.OptionSetVisibility(!t.silent),
+	)
+}
+
+func (t *torRelayScanner) loadRelays() error {
 	for _, addr := range t.urls {
+		var err error
 		t.relayInfo, err = t.grab(addr)
-		if err != nil {
-			continue
+		if err == nil {
+			break
 		}
-		break
 	}
 
 	if len(t.relayInfo.Relays) == 0 {
 		return errors.New("tor Relay information can't be downloaded")
 	}
 
+	t.relayInfo.Relays = t.filterRelays(t.relayInfo.Relays)
+
+	if len(t.relayInfo.Relays) == 0 {
+		return errors.New("there are no relays within specified port number constrains!\nTry changing port numbers")
+	}
+
+	shuffle(t.relayInfo.Relays)
+	return nil
+}
+
+func (t *torRelayScanner) filterRelays(relays Relays) Relays {
 	var filtered Relays
-	for _, rel := range t.relayInfo.Relays {
-		var orAddresses []string
-		for _, addr := range rel.OrAddresses {
-			if t.skipAddrType(addr) {
-				continue
-			}
-			if t.checkPorts(addr) {
-				continue
-			}
-			orAddresses = append(orAddresses, addr)
-		}
+	for _, rel := range relays {
+		orAddresses := t.filterAddresses(rel.OrAddresses)
 		if len(orAddresses) > 0 {
 			rel.OrAddresses = orAddresses
 			filtered = append(filtered, rel)
 		}
 	}
+	return filtered
+}
 
-	if len(filtered) == 0 {
-		return errors.New("there are no relays within specified port number constrains!\nTry changing port numbers")
+func (t *torRelayScanner) filterAddresses(addresses []string) []string {
+	var filtered []string
+	for _, addr := range addresses {
+		if t.skipAddrType(addr) || t.checkPorts(addr) {
+			continue
+		}
+		filtered = append(filtered, addr)
 	}
-	t.relayInfo.Relays = filtered
-
-	shuffle(t.relayInfo.Relays)
-
-	return nil
+	return filtered
 }
 
 func (t *torRelayScanner) checkPorts(addr string) bool {
 	if len(t.ports) > 0 {
 		u, _ := url.Parse("//" + addr)
-		var keep bool
-		for _, p := range t.ports {
-			if u.Port() == p {
-				keep = true
-			}
-		}
-		if !keep {
+		if !slices.Contains(t.ports, u.Port()) {
 			return true
 		}
 	}
@@ -215,14 +223,10 @@ func (t *torRelayScanner) checkPorts(addr string) bool {
 
 func (t *torRelayScanner) skipAddrType(addr string) bool {
 	if t.ipv4 && !t.ipv6 {
-		if addr[0] == '[' {
-			return true
-		}
+		return addr[0] == '['
 	}
 	if t.ipv6 && !t.ipv4 {
-		if addr[0] != '[' {
-			return true
-		}
+		return addr[0] != '['
 	}
 	return false
 }

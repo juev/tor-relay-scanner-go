@@ -11,43 +11,56 @@ import (
 	scanner "github.com/juev/tor-relay-scanner-go"
 )
 
-var torRc, jsonRelays, silent bool
-var outfile string
+var (
+	torRc, jsonRelays, silent bool
+	outfile                   string
+)
 
 func main() {
-	sc := create()
+	sc := createScanner()
 
-	var prefix string
-	if torRc {
-		prefix = "Bridge "
+	writer := setupOutputWriter()
+	out := io.MultiWriter(writer)
+
+	if jsonRelays {
+		printJSONRelays(sc, out)
+		return
 	}
 
-	var writer io.Writer
-	writer = os.Stdout
+	printRelays(sc, out)
+}
+
+func setupOutputWriter() io.Writer {
+	var writer io.Writer = os.Stdout
 	if silent && outfile != "" {
 		writer = io.Discard
 	}
-	out := io.MultiWriter(writer)
-
 	if outfile != "" {
 		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
 		if err != nil {
 			color.Fprintf(os.Stderr, "cannot create file (%s): %s\n", outfile, err.Error())
 			os.Exit(2)
 		}
-		out = io.MultiWriter(writer, logFile)
+		writer = io.MultiWriter(writer, logFile)
 	}
+	return writer
+}
 
-	if jsonRelays {
-		relays := sc.GetJSON()
-		color.Fprintf(out, "%s\n", relays)
-		return
-	}
+func printJSONRelays(sc scanner.TorRelayScanner, out io.Writer) {
+	relays := sc.GetJSON()
+	color.Fprintf(out, "%s\n", relays)
+}
 
+func printRelays(sc scanner.TorRelayScanner, out io.Writer) {
 	relays := sc.Grab()
 	if len(relays) == 0 {
 		color.Fprintf(os.Stderr, "No relays are reachable this try.\n")
 		os.Exit(3)
+	}
+
+	var prefix string
+	if torRc {
+		prefix = "Bridge "
 	}
 
 	for _, el := range relays {
@@ -64,7 +77,7 @@ func usage() {
 	os.Exit(0)
 }
 
-func create() scanner.TorRelayScanner {
+func createScanner() scanner.TorRelayScanner {
 	var poolSize, goal int
 	var timeoutStr, deadlineStr string
 	var urls, port []string
@@ -86,20 +99,11 @@ func create() scanner.TorRelayScanner {
 	flag.Usage = usage
 	flag.Parse()
 
-	timeout, err := time.ParseDuration(timeoutStr)
-	if err != nil {
-		color.Printf("cannot parse timeout duration: %s\n", err)
-		os.Exit(1)
-	}
+	timeout := parseDuration(timeoutStr)
+	deadline := parseDuration(deadlineStr)
 
 	if timeout < 50*time.Millisecond {
 		color.Println("It doesn't make sense to set a timeout of less than 50 ms")
-		os.Exit(1)
-	}
-
-	deadline, err := time.ParseDuration(deadlineStr)
-	if err != nil {
-		color.Printf("cannot parse deadline duration: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -108,7 +112,7 @@ func create() scanner.TorRelayScanner {
 		os.Exit(1)
 	}
 
-	sc := scanner.New(
+	return scanner.New(
 		poolSize,
 		goal,
 		timeout,
@@ -119,6 +123,13 @@ func create() scanner.TorRelayScanner {
 		silent,
 		deadline,
 	)
+}
 
-	return sc
+func parseDuration(durationStr string) time.Duration {
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		color.Printf("cannot parse duration: %s\n", err)
+		os.Exit(1)
+	}
+	return duration
 }
