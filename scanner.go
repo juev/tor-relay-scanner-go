@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/carlmjohnson/requests"
@@ -31,8 +32,9 @@ func New(
 	ipv6 bool,
 	silent bool,
 	deadline time.Duration,
+	country string,
 ) TorRelayScanner {
-	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses"
+	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses,country"
 
 	// Use public CORS proxy as a regular proxy in case if onionoo.torproject.org is unreachable
 	urls := []string{
@@ -58,6 +60,7 @@ func New(
 		ipv6:         ipv6,
 		silent:       silent,
 		deadline:     deadline,
+		country:      country,
 	}
 }
 
@@ -112,19 +115,22 @@ func (t *torRelayScanner) getRelays() Relays {
 	bar := t.createProgressBar()
 
 	var relays Relays
-	for i := 0; i < t.goal; i++ {
+loop:
+	for i := 1; i <= t.goal; i++ {
 		select {
-		case el := <-chanRelays:
+		case el, opened := <-chanRelays:
+			if !opened {
+				break loop
+			}
 			relays = append(relays, el)
 			_ = bar.Add(1)
 		case <-time.After(t.deadline):
 			_ = bar.Add(t.goal)
 			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fs\n", t.deadline.Seconds())
-			goto loop
+			break loop
 		}
 	}
 
-loop:
 	return relays
 }
 
@@ -137,6 +143,7 @@ func (t *torRelayScanner) testRelays(chanRelays chan Relay) {
 				chanRelays <- Relay{
 					Fingerprint: el.Fingerprint,
 					OrAddresses: el.OrAddresses,
+					Country:     el.Country,
 				}
 			}
 		})
@@ -190,9 +197,14 @@ func (t *torRelayScanner) loadRelays() error {
 	return nil
 }
 
+// filterRelays filters relays by country and addresses
 func (t *torRelayScanner) filterRelays(relays Relays) Relays {
 	var filtered Relays
 	for _, rel := range relays {
+		if !t.filterCountry(rel) {
+			continue
+		}
+
 		orAddresses := t.filterAddresses(rel.OrAddresses)
 		if len(orAddresses) > 0 {
 			rel.OrAddresses = orAddresses
@@ -202,10 +214,21 @@ func (t *torRelayScanner) filterRelays(relays Relays) Relays {
 	return filtered
 }
 
+// filterCountry filters relays by country
+// if country is empty, it returns false
+// if relay's country is in the list of countries, it returns true
+func (t *torRelayScanner) filterCountry(relay Relay) bool {
+	if t.country == "" {
+		return true
+	}
+
+	return slices.Contains(strings.Split(t.country, ","), relay.Country)
+}
+
 func (t *torRelayScanner) filterAddresses(addresses []string) []string {
 	var filtered []string
 	for _, addr := range addresses {
-		if t.skipAddrType(addr) || t.checkPorts(addr) {
+		if t.skipAddrType(addr) || t.skipPorts(addr) {
 			continue
 		}
 		filtered = append(filtered, addr)
@@ -213,7 +236,7 @@ func (t *torRelayScanner) filterAddresses(addresses []string) []string {
 	return filtered
 }
 
-func (t *torRelayScanner) checkPorts(addr string) bool {
+func (t *torRelayScanner) skipPorts(addr string) bool {
 	u, _ := url.Parse("//" + addr)
 	var skip bool
 	if len(t.ports) > 0 {
