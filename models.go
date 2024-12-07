@@ -32,6 +32,8 @@ type torRelayScanner struct {
 	silent bool
 	// Deadline time
 	deadline time.Duration
+	// Preferred country list, comma-separated. Example: se,gb,nl,det
+	country string
 }
 
 type (
@@ -59,6 +61,7 @@ type Relays []Relay
 type Relay struct {
 	Fingerprint string   `json:"fingerprint"`
 	OrAddresses []string `json:"or_addresses"`
+	Country     string   `json:"country"`
 }
 
 // ResultRelay ...

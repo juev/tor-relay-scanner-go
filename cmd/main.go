@@ -79,7 +79,7 @@ func usage() {
 
 func createScanner() scanner.TorRelayScanner {
 	var poolSize, goal int
-	var timeoutStr, deadlineStr string
+	var timeoutStr, deadlineStr, country string
 	var urls, port, excludePort []string
 	var ipv4, ipv6 bool
 
@@ -96,6 +96,7 @@ func createScanner() scanner.TorRelayScanner {
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.BoolVarP(&silent, "silent", "s", false, `Silent mode`)
 	flag.StringVarP(&deadlineStr, "deadline", "d", "1m", `The deadline of program execution`)
+	flag.StringVarP(&country, "preferred-country", "c", "", `Preferred country list, comma-separated. Example: se,gb,nl,det`)
 
 	flag.Usage = usage
 	flag.Parse()
@@ -124,6 +125,7 @@ func createScanner() scanner.TorRelayScanner {
 		ipv6,
 		silent,
 		deadline,
+		country,
 	)
 }
 
