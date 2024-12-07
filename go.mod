@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.4
 
 require (
-	github.com/carlmjohnson/requests v0.24.2
+	github.com/carlmjohnson/requests v0.24.3
 	github.com/gookit/color v1.5.4
 	github.com/json-iterator/go v1.1.12
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
@@ -22,7 +22,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/term v0.26.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
 )
