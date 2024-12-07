@@ -80,7 +80,7 @@ func usage() {
 func createScanner() scanner.TorRelayScanner {
 	var poolSize, goal int
 	var timeoutStr, deadlineStr string
-	var urls, port []string
+	var urls, port, excludePort []string
 	var ipv4, ipv6 bool
 
 	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
@@ -90,6 +90,7 @@ func createScanner() scanner.TorRelayScanner {
 	flag.BoolVar(&torRc, "torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
 	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
 	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
+	flag.StringArrayVarP(&excludePort, "exclude_port", "x", []string{}, `Scan relays with exception of certain port number. Could be used multiple times.`)
 	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
@@ -118,6 +119,7 @@ func createScanner() scanner.TorRelayScanner {
 		timeout,
 		urls,
 		port,
+		excludePort,
 		ipv4,
 		ipv6,
 		silent,

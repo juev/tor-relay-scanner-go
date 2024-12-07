@@ -26,6 +26,7 @@ func New(
 	timeout time.Duration,
 	urlsList []string,
 	port []string,
+	excludePorts []string,
 	ipv4 bool,
 	ipv6 bool,
 	silent bool,
@@ -47,15 +48,16 @@ func New(
 	}
 
 	return &torRelayScanner{
-		poolSize: poolSize,
-		goal:     goal,
-		timeout:  timeout,
-		urls:     urls,
-		ports:    port,
-		ipv4:     ipv4,
-		ipv6:     ipv6,
-		silent:   silent,
-		deadline: deadline,
+		poolSize:     poolSize,
+		goal:         goal,
+		timeout:      timeout,
+		urls:         urls,
+		ports:        port,
+		excludePorts: excludePorts,
+		ipv4:         ipv4,
+		ipv6:         ipv6,
+		silent:       silent,
+		deadline:     deadline,
 	}
 }
 
@@ -212,13 +214,20 @@ func (t *torRelayScanner) filterAddresses(addresses []string) []string {
 }
 
 func (t *torRelayScanner) checkPorts(addr string) bool {
+	u, _ := url.Parse("//" + addr)
+	var skip bool
 	if len(t.ports) > 0 {
-		u, _ := url.Parse("//" + addr)
 		if !slices.Contains(t.ports, u.Port()) {
-			return true
+			skip = true
 		}
 	}
-	return false
+	if len(t.excludePorts) > 0 {
+		if slices.Contains(t.excludePorts, u.Port()) {
+			skip = true
+		}
+	}
+
+	return skip
 }
 
 func (t *torRelayScanner) skipAddrType(addr string) bool {

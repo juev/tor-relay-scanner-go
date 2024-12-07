@@ -22,6 +22,8 @@ type torRelayScanner struct {
 	urls []string
 	// Scan for relays running on specified port number. Could be used multiple times
 	ports []string
+	// Exclude relays running on specified port number. Could be used multiple times
+	excludePorts []string
 	// Use ipv4 only nodes
 	ipv4 bool
 	// Use ipv6 only nodes
