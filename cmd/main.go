@@ -14,6 +14,7 @@ import (
 var (
 	torRc, jsonRelays, silent bool
 	outfile                   string
+	ipv6                      bool
 )
 
 func main() {
@@ -68,6 +69,9 @@ func printRelays(sc scanner.TorRelayScanner, out io.Writer) {
 	}
 	if torRc {
 		color.Fprintf(out, "UseBridges 1\n")
+		if ipv6 {
+			color.Fprintf(out, "ClientPreferIPv6ORPort 1\n")
+		}
 	}
 }
 
@@ -81,7 +85,7 @@ func createScanner() scanner.TorRelayScanner {
 	var poolSize, goal int
 	var timeoutStr, deadlineStr, country string
 	var urls, port, excludePort []string
-	var ipv4, ipv6 bool
+	var ipv4 bool
 
 	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
 	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)

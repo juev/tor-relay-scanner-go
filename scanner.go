@@ -115,19 +115,18 @@ func (t *torRelayScanner) getRelays() Relays {
 	bar := t.createProgressBar()
 
 	var relays Relays
-loop:
 	for i := 1; i <= t.goal; i++ {
 		select {
 		case el, opened := <-chanRelays:
 			if !opened {
-				break loop
+				return relays
 			}
 			relays = append(relays, el)
 			_ = bar.Add(1)
 		case <-time.After(t.deadline):
 			_ = bar.Add(t.goal)
 			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fs\n", t.deadline.Seconds())
-			break loop
+			return relays
 		}
 	}
 
@@ -239,15 +238,13 @@ func (t *torRelayScanner) filterAddresses(addresses []string) []string {
 func (t *torRelayScanner) skipPorts(addr string) bool {
 	u, _ := url.Parse("//" + addr)
 	var skip bool
-	if len(t.ports) > 0 {
-		if !slices.Contains(t.ports, u.Port()) {
-			skip = true
-		}
+	if len(t.ports) > 0 &&
+		!slices.Contains(t.ports, u.Port()) {
+		skip = true
 	}
-	if len(t.excludePorts) > 0 {
-		if slices.Contains(t.excludePorts, u.Port()) {
-			skip = true
-		}
+	if len(t.excludePorts) > 0 &&
+		slices.Contains(t.excludePorts, u.Port()) {
+		skip = true
 	}
 
 	return skip
@@ -279,8 +276,12 @@ func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
 
 // tcpSocketConnectChecker just checked network connection with specific host:port
 func tcpSocketConnectChecker(addr string, timeout time.Duration) bool {
-	d := net.Dialer{Deadline: time.Now().Add(timeout)}
-	_, err := d.Dial("tcp", addr)
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.Dial("tcp", addr)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
 
-	return err == nil
+	return true
 }
