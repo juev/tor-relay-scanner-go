@@ -97,6 +97,26 @@ func (t *torRelayScanner) GetJSON() []byte {
 	return result
 }
 
+// PoolSize returns the pool size used for concurrent testing
+func (t *torRelayScanner) PoolSize() int {
+	return t.poolSize
+}
+
+// Goal returns the target number of working relays to find
+func (t *torRelayScanner) Goal() int {
+	return t.goal
+}
+
+// Timeout returns the socket connection timeout
+func (t *torRelayScanner) Timeout() time.Duration {
+	return t.timeout
+}
+
+// URLCount returns the number of URLs configured for relay data sources
+func (t *torRelayScanner) URLCount() int {
+	return len(t.urls)
+}
+
 func (t *torRelayScanner) getRelays() Relays {
 	if err := t.loadRelays(); err != nil {
 		t.logger.Fatalf("Tor Relay information can't be downloaded: %v", err)

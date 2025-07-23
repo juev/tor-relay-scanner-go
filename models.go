@@ -11,6 +11,10 @@ type TorRelayScanner interface {
 	Grab() (relays []ResultRelay)
 	GetJSON() []byte
 	WithContext(ctx context.Context) TorRelayScanner
+	PoolSize() int
+	Goal() int
+	Timeout() time.Duration
+	URLCount() int
 }
 
 type torRelayScanner struct {
