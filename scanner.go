@@ -3,16 +3,9 @@ package scanner
 import (
 	"context"
 	"errors"
-	"math/rand"
-	"net"
 	"net/url"
-	"os"
-	"slices"
-	"strings"
 	"time"
 
-	"github.com/carlmjohnson/requests"
-	"github.com/gookit/color"
 	"github.com/k0kubun/go-ansi"
 	"github.com/schollz/progressbar/v3"
 	"github.com/sourcegraph/conc/pool"
@@ -20,20 +13,8 @@ import (
 	json "github.com/json-iterator/go"
 )
 
-// New ...
-func New(
-	poolSize int,
-	goal int,
-	timeout time.Duration,
-	urlsList []string,
-	port []string,
-	excludePorts []string,
-	ipv4 bool,
-	ipv6 bool,
-	silent bool,
-	deadline time.Duration,
-	country string,
-) TorRelayScanner {
+// New creates a new TorRelayScanner with the provided configuration
+func New(cfg *Config) TorRelayScanner {
 	baseURL := "https://onionoo.torproject.org/details?type=relay&running=true&fields=fingerprint,or_addresses,country"
 
 	// Use public CORS proxy as a regular proxy in case if onionoo.torproject.org is unreachable
@@ -45,23 +26,32 @@ func New(
 	}
 
 	// Additional urls should be first
-	if len(urlsList) > 0 {
-		urls = append(urlsList, urls...)
+	if len(cfg.URLs) > 0 {
+		urls = append(cfg.URLs, urls...)
 	}
 
 	return &torRelayScanner{
-		poolSize:     poolSize,
-		goal:         goal,
-		timeout:      timeout,
+		poolSize:     cfg.PoolSize,
+		goal:         cfg.Goal,
+		timeout:      cfg.Timeout,
 		urls:         urls,
-		ports:        port,
-		excludePorts: excludePorts,
-		ipv4:         ipv4,
-		ipv6:         ipv6,
-		silent:       silent,
-		deadline:     deadline,
-		country:      country,
+		ports:        cfg.Ports,
+		excludePorts: cfg.ExcludePorts,
+		ipv4:         cfg.IPv4,
+		ipv6:         cfg.IPv6,
+		silent:       cfg.Silent,
+		deadline:     cfg.Deadline,
+		country:      cfg.PreferredCountry,
+		logger:       DefaultLogger(cfg.Silent),
+		ctx:          context.Background(),
 	}
+}
+
+// WithContext returns a new scanner with the provided context
+func (t *torRelayScanner) WithContext(ctx context.Context) TorRelayScanner {
+	newScanner := *t
+	newScanner.ctx = ctx
+	return &newScanner
 }
 
 // Grab returns relay list from public addresses
@@ -71,12 +61,16 @@ func (t *torRelayScanner) Grab() (relays []ResultRelay) {
 		return nil
 	}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for _, el := range resultRelays {
 		if len(el.OrAddresses) > 0 {
+			// Use crypto/rand for secure random selection
+			idx, err := cryptoRandInt(len(el.OrAddresses))
+			if err != nil {
+				idx = 0 // Fallback to first address if crypto rand fails
+			}
 			relays = append(relays, ResultRelay{
 				Fingerprint: el.Fingerprint,
-				Address:     el.OrAddresses[r.Intn(len(el.OrAddresses))],
+				Address:     el.OrAddresses[idx],
 			})
 		}
 	}
@@ -105,8 +99,7 @@ func (t *torRelayScanner) GetJSON() []byte {
 
 func (t *torRelayScanner) getRelays() Relays {
 	if err := t.loadRelays(); err != nil {
-		color.Fprintln(os.Stderr, "Tor Relay information can't be downloaded!")
-		os.Exit(1)
+		t.logger.Fatalf("Tor Relay information can't be downloaded: %v", err)
 	}
 
 	chanRelays := make(chan Relay)
@@ -117,6 +110,10 @@ func (t *torRelayScanner) getRelays() Relays {
 	var relays Relays
 	for i := 1; i <= t.goal; i++ {
 		select {
+		case <-t.ctx.Done():
+			_ = bar.Add(t.goal)
+			t.logger.Info("Scan cancelled by user")
+			return relays
 		case el, opened := <-chanRelays:
 			if !opened {
 				return relays
@@ -125,7 +122,7 @@ func (t *torRelayScanner) getRelays() Relays {
 			_ = bar.Add(1)
 		case <-time.After(t.deadline):
 			_ = bar.Add(t.goal)
-			color.Fprintf(os.Stderr, "\nThe program was running for more than the specified time: %.2fs\n", t.deadline.Seconds())
+			t.logger.Warn("The program was running for more than the specified time: %.2fs", t.deadline.Seconds())
 			return relays
 		}
 	}
@@ -196,92 +193,4 @@ func (t *torRelayScanner) loadRelays() error {
 	return nil
 }
 
-// filterRelays filters relays by country and addresses
-func (t *torRelayScanner) filterRelays(relays Relays) Relays {
-	var filtered Relays
-	for _, rel := range relays {
-		if !t.filterCountry(rel) {
-			continue
-		}
 
-		orAddresses := t.filterAddresses(rel.OrAddresses)
-		if len(orAddresses) > 0 {
-			rel.OrAddresses = orAddresses
-			filtered = append(filtered, rel)
-		}
-	}
-	return filtered
-}
-
-// filterCountry filters relays by country
-// if country is empty, it returns false
-// if relay's country is in the list of countries, it returns true
-func (t *torRelayScanner) filterCountry(relay Relay) bool {
-	if t.country == "" {
-		return true
-	}
-
-	return slices.Contains(strings.Split(t.country, ","), relay.Country)
-}
-
-func (t *torRelayScanner) filterAddresses(addresses []string) []string {
-	var filtered []string
-	for _, addr := range addresses {
-		if t.skipAddrType(addr) || t.skipPorts(addr) {
-			continue
-		}
-		filtered = append(filtered, addr)
-	}
-	return filtered
-}
-
-func (t *torRelayScanner) skipPorts(addr string) bool {
-	u, _ := url.Parse("//" + addr)
-	var skip bool
-	if len(t.ports) > 0 &&
-		!slices.Contains(t.ports, u.Port()) {
-		skip = true
-	}
-	if len(t.excludePorts) > 0 &&
-		slices.Contains(t.excludePorts, u.Port()) {
-		skip = true
-	}
-
-	return skip
-}
-
-func (t *torRelayScanner) skipAddrType(addr string) bool {
-	if t.ipv4 && !t.ipv6 {
-		return addr[0] == '['
-	}
-	if t.ipv6 && !t.ipv4 {
-		return addr[0] != '['
-	}
-	return false
-}
-
-func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
-	var relayInfo RelayInfo
-	err := requests.
-		URL(addr).
-		UserAgent("tor-relay-scanner").
-		ToJSON(&relayInfo).
-		Fetch(context.Background())
-	if err != nil {
-		return RelayInfo{}, err
-	}
-
-	return relayInfo, nil
-}
-
-// tcpSocketConnectChecker just checked network connection with specific host:port
-func tcpSocketConnectChecker(addr string, timeout time.Duration) bool {
-	d := net.Dialer{Timeout: timeout}
-	conn, err := d.Dial("tcp", addr)
-	if err != nil {
-		return false
-	}
-	_ = conn.Close()
-
-	return true
-}

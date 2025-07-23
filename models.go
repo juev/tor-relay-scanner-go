@@ -1,13 +1,16 @@
 package scanner
 
 import (
+	"context"
 	"time"
 )
 
-// TorRelayScanner ...
+// TorRelayScanner defines the interface for scanning Tor relays.
+// It provides methods to retrieve available Tor relays in different formats.
 type TorRelayScanner interface {
 	Grab() (relays []ResultRelay)
 	GetJSON() []byte
+	WithContext(ctx context.Context) TorRelayScanner
 }
 
 type torRelayScanner struct {
@@ -34,6 +37,10 @@ type torRelayScanner struct {
 	deadline time.Duration
 	// Preferred country list, comma-separated. Example: se,gb,nl,det
 	country string
+	// Logger for output
+	logger *Logger
+	// Context for cancellation
+	ctx context.Context
 }
 
 type (
@@ -54,17 +61,17 @@ type RelayInfo struct {
 	Bridges          bridges          `json:"bridges"`
 }
 
-// Relays ...
+// Relays represents a slice of Relay structs
 type Relays []Relay
 
-// Relay ...
+// Relay represents a single Tor relay with its network information
 type Relay struct {
 	Fingerprint string   `json:"fingerprint"`
 	OrAddresses []string `json:"or_addresses"`
 	Country     string   `json:"country"`
 }
 
-// ResultRelay ...
+// ResultRelay represents a Tor relay result with a selected address
 type ResultRelay struct {
 	Fingerprint string `json:"fingerprint"`
 	Address     string `json:"or_addresses"`
