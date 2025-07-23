@@ -65,6 +65,9 @@ func (t *torRelayScanner) skipPorts(addr string) bool {
 }
 
 func (t *torRelayScanner) skipAddrType(addr string) bool {
+	if len(addr) == 0 {
+		return false
+	}
 	if t.ipv4 && !t.ipv6 {
 		return addr[0] == '['
 	}
