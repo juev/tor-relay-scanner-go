@@ -69,10 +69,10 @@ func (t *torRelayScanner) skipAddrType(addr string) bool {
 		return false
 	}
 	if t.ipv4 && !t.ipv6 {
-		return addr[0] == '['
+		return len(addr) > 0 && addr[0] == '['
 	}
 	if t.ipv6 && !t.ipv4 {
-		return addr[0] != '['
+		return len(addr) > 0 && addr[0] != '['
 	}
 	return false
 }
