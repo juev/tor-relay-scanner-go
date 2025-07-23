@@ -86,7 +86,7 @@ func setupOutputWriter() io.Writer {
 			log.Fatalf("invalid file path: %s\n", err.Error())
 		}
 
-		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600) // #nosec G304 -- Path is validated by validateFilePath function
 		if err != nil {
 			log.Fatalf("cannot create file (%s): %s\n", outfile, err.Error())
 		}
