@@ -45,25 +45,20 @@ func TestNew(t *testing.T) {
 			}
 			scanner := New(cfg)
 
-			ts, ok := scanner.(*torRelayScanner)
-			if !ok {
-				t.Fatal("expected *torRelayScanner type")
+			if scanner.PoolSize() != tt.poolSize {
+				t.Errorf("PoolSize = %d, want %d", scanner.PoolSize(), tt.poolSize)
 			}
 
-			if ts.poolSize != tt.poolSize {
-				t.Errorf("poolSize = %d, want %d", ts.poolSize, tt.poolSize)
+			if scanner.Goal() != tt.goal {
+				t.Errorf("Goal = %d, want %d", scanner.Goal(), tt.goal)
 			}
 
-			if ts.goal != tt.goal {
-				t.Errorf("goal = %d, want %d", ts.goal, tt.goal)
+			if scanner.Timeout() != tt.timeout {
+				t.Errorf("Timeout = %v, want %v", scanner.Timeout(), tt.timeout)
 			}
 
-			if ts.timeout != tt.timeout {
-				t.Errorf("timeout = %v, want %v", ts.timeout, tt.timeout)
-			}
-
-			if len(ts.urls) != tt.expectedURLs {
-				t.Errorf("urls count = %d, want %d", len(ts.urls), tt.expectedURLs)
+			if scanner.URLCount() != tt.expectedURLs {
+				t.Errorf("URL count = %d, want %d", scanner.URLCount(), tt.expectedURLs)
 			}
 		})
 	}
