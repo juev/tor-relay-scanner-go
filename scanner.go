@@ -192,5 +192,3 @@ func (t *torRelayScanner) loadRelays() error {
 	shuffle(t.relayInfo.Relays)
 	return nil
 }
-
-

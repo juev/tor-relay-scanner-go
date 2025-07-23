@@ -248,11 +248,11 @@ func TestFilterAddresses(t *testing.T) {
 	}
 
 	addresses := []string{
-		"192.168.1.1:9001",    // Should pass
-		"[2001:db8::1]:9001",  // Should fail (ipv6)
-		"192.168.1.2:9030",    // Should fail (excluded port)
-		"192.168.1.3:443",     // Should fail (not in allowed ports)
-		"10.0.0.1:9001",       // Should pass
+		"192.168.1.1:9001",   // Should pass
+		"[2001:db8::1]:9001", // Should fail (ipv6)
+		"192.168.1.2:9030",   // Should fail (excluded port)
+		"192.168.1.3:443",    // Should fail (not in allowed ports)
+		"10.0.0.1:9001",      // Should pass
 	}
 
 	filtered := scanner.filterAddresses(addresses)

@@ -11,11 +11,11 @@ import (
 // grab fetches relay information from the given URL
 func (t *torRelayScanner) grab(addr string) (RelayInfo, error) {
 	var relayInfo RelayInfo
-	
+
 	// Create context with timeout for HTTP request
 	ctx, cancel := context.WithTimeout(context.Background(), HTTPRequestTimeout)
 	defer cancel()
-	
+
 	err := requests.
 		URL(addr).
 		UserAgent("tor-relay-scanner").
