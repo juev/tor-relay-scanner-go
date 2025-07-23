@@ -26,7 +26,7 @@ const (
 	HTTPRequestTimeout = 30 * time.Second
 )
 
-// Config holds all configuration for the Tor relay scanner
+// Config holds all configuration for the Tor relay scanner, including relay testing parameters and output settings.
 type Config struct {
 	// PoolSize is the number of concurrent relays tested
 	PoolSize int
