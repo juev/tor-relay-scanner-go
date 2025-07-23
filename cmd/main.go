@@ -62,7 +62,7 @@ func setupOutputWriter() io.Writer {
 		writer = io.Discard
 	}
 	if outfile != "" {
-		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
+		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
 		if err != nil {
 			log.Fatalf("cannot create file (%s): %s\n", outfile, err.Error())
 		}
