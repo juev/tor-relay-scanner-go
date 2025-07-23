@@ -1,8 +1,15 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"log"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gookit/color"
@@ -18,10 +25,31 @@ var (
 )
 
 func main() {
-	sc := createScanner()
+	// Set up signal handling for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		log.Println("\nReceived interrupt signal, shutting down gracefully...")
+		cancel()
+	}()
+
+	sc := createScanner().WithContext(ctx)
 
 	writer := setupOutputWriter()
 	out := io.MultiWriter(writer)
+
+	// Check if context was cancelled
+	select {
+	case <-ctx.Done():
+		log.Println("Shutdown requested before operation started")
+		return
+	default:
+	}
 
 	if jsonRelays {
 		printJSONRelays(sc, out)
@@ -31,16 +59,36 @@ func main() {
 	printRelays(sc, out)
 }
 
+func validateFilePath(path string) error {
+	// Clean the path to resolve any . or .. elements
+	cleanPath := filepath.Clean(path)
+
+	// Check for path traversal attempts
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("path traversal detected in file path: %s", path)
+	}
+
+	// Ensure the path is not absolute to prevent writing to arbitrary locations
+	if filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("absolute paths not allowed: %s", path)
+	}
+
+	return nil
+}
+
 func setupOutputWriter() io.Writer {
 	var writer io.Writer = os.Stdout
 	if silent && outfile != "" {
 		writer = io.Discard
 	}
 	if outfile != "" {
-		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
+		if err := validateFilePath(outfile); err != nil {
+			log.Fatalf("invalid file path: %s\n", err.Error())
+		}
+
+		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600) // #nosec G304 -- Path is validated by validateFilePath function
 		if err != nil {
-			color.Fprintf(os.Stderr, "cannot create file (%s): %s\n", outfile, err.Error())
-			os.Exit(2)
+			log.Fatalf("cannot create file (%s): %s\n", outfile, err.Error())
 		}
 		writer = io.MultiWriter(writer, logFile)
 	}
@@ -55,8 +103,7 @@ func printJSONRelays(sc scanner.TorRelayScanner, out io.Writer) {
 func printRelays(sc scanner.TorRelayScanner, out io.Writer) {
 	relays := sc.Grab()
 	if len(relays) == 0 {
-		color.Fprintf(os.Stderr, "No relays are reachable this try.\n")
-		os.Exit(3)
+		log.Fatal("No relays are reachable this try.")
 	}
 
 	var prefix string
@@ -82,55 +129,41 @@ func usage() {
 }
 
 func createScanner() scanner.TorRelayScanner {
-	var poolSize, goal int
-	var timeoutStr, deadlineStr, country string
-	var urls, port, excludePort []string
-	var ipv4 bool
+	cfg := scanner.NewDefaultConfig()
+	var timeoutStr, deadlineStr string
 
-	flag.IntVarP(&poolSize, "num_relays", "n", 100, `The number of concurrent relays tested.`)
-	flag.IntVarP(&goal, "working_relay_num_goal", "g", 5, `Test until at least this number of working relays are found`)
+	flag.IntVarP(&cfg.PoolSize, "num_relays", "n", scanner.DefaultPoolSize, `The number of concurrent relays tested.`)
+	flag.IntVarP(&cfg.Goal, "working_relay_num_goal", "g", scanner.DefaultGoal, `Test until at least this number of working relays are found`)
 	flag.StringVarP(&timeoutStr, "timeout", "t", "200ms", `Socket connection timeout`)
 	flag.StringVarP(&outfile, "outfile", "o", "", `Output reachable relays to file`)
 	flag.BoolVar(&torRc, "torrc", false, `Output reachable relays in torrc format (with "Bridge" prefix)`)
-	flag.StringArrayVarP(&urls, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
-	flag.StringArrayVarP(&port, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
-	flag.StringArrayVarP(&excludePort, "exclude_port", "x", []string{}, `Scan relays with exception of certain port number. Could be used multiple times.`)
-	flag.BoolVarP(&ipv4, "ipv4", "4", false, `Use ipv4 only nodes`)
+	flag.StringArrayVarP(&cfg.URLs, "url", "u", []string{}, `Preferred alternative URL for onionoo relay list. Could be used multiple times.`)
+	flag.StringArrayVarP(&cfg.Ports, "port", "p", []string{}, `Scan for relays running on specified port number. Could be used multiple times.`)
+	flag.StringArrayVarP(&cfg.ExcludePorts, "exclude_port", "x", []string{}, `Scan relays with exception of certain port number. Could be used multiple times.`)
+	flag.BoolVarP(&cfg.IPv4, "ipv4", "4", false, `Use ipv4 only nodes`)
 	flag.BoolVarP(&ipv6, "ipv6", "6", false, `Use ipv6 only nodes`)
 	flag.BoolVarP(&jsonRelays, "json", "j", false, `Get available relays in json format`)
 	flag.BoolVarP(&silent, "silent", "s", false, `Silent mode`)
 	flag.StringVarP(&deadlineStr, "deadline", "d", "1m", `The deadline of program execution`)
-	flag.StringVarP(&country, "preferred-country", "c", "", `Preferred country list, comma-separated. Example: se,gb,nl,det`)
+	flag.StringVarP(&cfg.PreferredCountry, "preferred-country", "c", "", `Preferred country list, comma-separated. Example: se,gb,nl,det`)
 
 	flag.Usage = usage
 	flag.Parse()
 
-	timeout := parseDuration(timeoutStr)
-	deadline := parseDuration(deadlineStr)
+	cfg.Timeout = parseDuration(timeoutStr)
+	cfg.Deadline = parseDuration(deadlineStr)
+	cfg.OutputFile = outfile
+	cfg.TorRC = torRc
+	cfg.JSONOutput = jsonRelays
+	cfg.Silent = silent
+	cfg.IPv6 = ipv6
 
-	if timeout < 50*time.Millisecond {
-		color.Println("It doesn't make sense to set a timeout of less than 50 ms")
+	if err := cfg.Validate(); err != nil {
+		color.Printf("Configuration error: %s\n", err)
 		os.Exit(1)
 	}
 
-	if timeout > deadline {
-		color.Println("The deadline must be greater than the timeout")
-		os.Exit(1)
-	}
-
-	return scanner.New(
-		poolSize,
-		goal,
-		timeout,
-		urls,
-		port,
-		excludePort,
-		ipv4,
-		ipv6,
-		silent,
-		deadline,
-		country,
-	)
+	return scanner.New(cfg)
 }
 
 func parseDuration(durationStr string) time.Duration {
