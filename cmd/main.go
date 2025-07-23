@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"filepath"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,12 +59,33 @@ func main() {
 	printRelays(sc, out)
 }
 
+func validateFilePath(path string) error {
+	// Clean the path to resolve any . or .. elements
+	cleanPath := filepath.Clean(path)
+
+	// Check for path traversal attempts
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("path traversal detected in file path: %s", path)
+	}
+
+	// Ensure the path is not absolute to prevent writing to arbitrary locations
+	if filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("absolute paths not allowed: %s", path)
+	}
+
+	return nil
+}
+
 func setupOutputWriter() io.Writer {
 	var writer io.Writer = os.Stdout
 	if silent && outfile != "" {
 		writer = io.Discard
 	}
 	if outfile != "" {
+		if err := validateFilePath(outfile); err != nil {
+			log.Fatalf("invalid file path: %s\n", err.Error())
+		}
+
 		logFile, err := os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
 		if err != nil {
 			log.Fatalf("cannot create file (%s): %s\n", outfile, err.Error())
