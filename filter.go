@@ -46,7 +46,11 @@ func (t *torRelayScanner) filterAddresses(addresses []string) []string {
 }
 
 func (t *torRelayScanner) skipPorts(addr string) bool {
-	u, _ := url.Parse("//" + addr)
+	u, err := url.Parse("//" + addr)
+	if err != nil {
+		// Skip the address if parsing fails
+		return true
+	}
 	var skip bool
 	if len(t.ports) > 0 &&
 		!slices.Contains(t.ports, u.Port()) {
