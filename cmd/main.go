@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"filepath"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
